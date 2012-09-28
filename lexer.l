@@ -1,3 +1,4 @@
+/* lexer.l by William Ho */
 %option noyywrap
 
 %{
@@ -13,7 +14,7 @@ void get_int_info();
 void get_real_info();
 void print_escaped_char(char c);
 
-int str_len, num_real, num_size, num_unsigned;
+int str_len;
 char str_buf[MAX_STR_LEN];
 char filename[MAX_STR_LEN];
 char *buf_ptr;
@@ -89,9 +90,9 @@ _Imaginary { return _IMAGINARY; }
 0[xX]{HEX}*\.{HEX}+{BEXP}{FLOATSUFFIX}? { get_real_info(); return NUMBER; }
 0[xX]{HEX}+\.?{BEXP}{FLOATSUFFIX}? { get_real_info(); return NUMBER; }
 
-0[xX]{HEX}+{INTSUFFIX}? { sscanf(yytext+2, "%llx", &yylval.ival); get_int_info(); return NUMBER; }
-0[0-7]*{INTSUFFIX}?     { sscanf(yytext, "%llo", &yylval.ival); get_int_info(); return NUMBER; }
-[1-9][0-9]*{INTSUFFIX}? { sscanf(yytext, "%lld", &yylval.ival); get_int_info(); return NUMBER; }
+0[xX]{HEX}+{INTSUFFIX}? { sscanf(yytext+2, "%llx", &yylval.num.ival); get_int_info(); return NUMBER; }
+0[0-7]*{INTSUFFIX}?     { sscanf(yytext, "%llo", &yylval.num.ival); get_int_info(); return NUMBER; }
+[1-9][0-9]*{INTSUFFIX}? { sscanf(yytext, "%lld", &yylval.num.ival); get_int_info(); return NUMBER; }
 
 L?\'                 { BEGIN(CHAR); str_len=0; buf_ptr=str_buf; }
 L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
@@ -305,22 +306,22 @@ main() {
 				print_escaped_char(yylval.sval[i]);
 			break;
 		case NUMBER:
-			if (num_real) {
-				printf("REAL\t%Lg\t",yylval.fval);
-				switch(num_size) {
-				case 0: printf("FLOAT"); break;
-				case 1: printf("DOUBLE"); break;
-				case 2: printf("LONGDOUBLE"); break;
+			if (yylval.num.ntype>=N_FLOAT /* Real number */) {
+				printf("REAL\t%Lg\t",yylval.num.rval);
+				switch(yylval.num.ntype) {
+				case N_FLOAT: printf("FLOAT"); break;
+				case N_DOUBLE: printf("DOUBLE"); break;
+				case N_LONGDOUBLE: printf("LONGDOUBLE"); break;
 				}
 			}
 			else {
-				printf("INTEGER\t%lld\t",yylval.ival);
-				if (num_unsigned)
+				printf("INTEGER\t%lld\t",yylval.num.ival);
+				if (yylval.num.is_unsigned)
 					printf("UNSIGNED,");
-				switch(num_size) {
-				case 0: printf("INT"); break;
-				case 1: printf("LONG"); break;
-				case 2: printf("LONGLONG"); break;
+				switch(yylval.num.ntype) {
+				case N_INT: printf("INT"); break;
+				case N_LONG: printf("LONG"); break;
+				case N_LONGLONG: printf("LONGLONG"); break;
 				}
 			}
 			break;
@@ -331,12 +332,12 @@ main() {
 
 void get_int_info() {
 	int i;
-	num_real = num_unsigned = num_size = 0;
+	yylval.num.ntype = yylval.num.is_unsigned = 0;
 	for (i=yyleng-1;; i--) {
 		if (yytext[i] == 'u' || yytext[i] == 'U')
-			num_unsigned = 1;
+			yylval.num.is_unsigned = 1;
 		else if (yytext[i] == 'l' || yytext[i] == 'L')
-			num_size++;
+			yylval.num.ntype++;
 		else
 			break;
 	}
@@ -344,16 +345,15 @@ void get_int_info() {
 
 void get_real_info() {
 	int i = yyleng-1;
-	num_real = 1;
 	
-	sscanf(yytext,"%Lf",&yylval.fval);
+	sscanf(yytext,"%Lf",&yylval.num.rval);
 	
 	if (yytext[i] == 'f' || yytext[i] == 'F')
-		num_size = 0; // float
+		yylval.num.ntype = N_FLOAT;
 	else if (yytext[i] == 'l' || yytext[i] == 'L')
-		num_size = 2; // long double
+		yylval.num.ntype = N_LONGDOUBLE;
 	else
-		num_size = 1; // double
+		yylval.num.ntype = N_DOUBLE;
 }
 
 void print_escaped_char(char c) {

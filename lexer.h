@@ -1,9 +1,24 @@
+/* lexer.h by William Ho */
+#ifndef LEXER_H
+#define LEXER_H
+
+enum ntype {
+	N_INT, N_LONG, N_LONGLONG, N_FLOAT, N_DOUBLE, N_LONGDOUBLE
+};
+
+struct num {
+	int ntype;  /* 0: int,   1: long,   2: long long, 
+				   3: float, 4: double, 5: long double */
+	int is_unsigned;
+	long long int ival;
+	long double rval;
+};
+
 typedef union {
 	char cval;
 	char *sval;
 	char *idval;
-	long long int ival;
-	long double fval;
+	struct num num;
 } YYSTYPE;
 extern YYSTYPE yylval;
 
@@ -73,3 +88,5 @@ enum tokens {
 	_COMPLEX,
 	_IMAGINARY
 };
+
+#endif
