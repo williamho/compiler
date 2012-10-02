@@ -4,12 +4,13 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
-#include "lexer.h"
+#include "y.tab.h"
 #define MAX_STR_LEN 1024
 YYSTYPE yylval;
 
-void yyerror(char *s); 
+void yyerror(char *s, ...); 
 void get_int_info();
 void get_real_info();
 void print_escaped_char(char c);
@@ -29,7 +30,7 @@ LONG (l|L|ll|LL)
 INTSUFFIX ([uU]{LONG}?|{LONG}[uU]?)
 FLOATSUFFIX [fFlL]
 
-%x STR CHAR LINENUM FILENAME FLAGS
+%x STR CHARA LINENUM FILENAME FLAGS
 %%
 
 # { BEGIN(LINENUM); }
@@ -81,7 +82,7 @@ _Bool      { return _BOOL; }
 _Complex   { return _COMPLEX; }
 _Imaginary { return _IMAGINARY; }
 
-{ALPHA}[a-zA-Z0-9]*  { yylval.idval = strdup(yytext); return IDENT; }
+{ALPHA}[a-zA-Z0-9]*  { yylval.sval = strdup(yytext); return IDENT; }
 
 {NUM}+{EXP}{FLOATSUFFIX}?      { get_real_info(); return NUMBER; }
 {NUM}*\.{NUM}+{EXP}?{FLOATSUFFIX}? { get_real_info(); return NUMBER; }
@@ -94,17 +95,17 @@ _Imaginary { return _IMAGINARY; }
 0[0-7]*{INTSUFFIX}?     { sscanf(yytext, "%llo", &yylval.num.ival); get_int_info(); return NUMBER; }
 [1-9][0-9]*{INTSUFFIX}? { sscanf(yytext, "%lld", &yylval.num.ival); get_int_info(); return NUMBER; }
 
-L?\'                 { BEGIN(CHAR); str_len=0; buf_ptr=str_buf; }
+L?\'                 { BEGIN(CHARA); str_len=0; buf_ptr=str_buf; }
 L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 
-<CHAR>{
+<CHARA>{
 	\' { 
 		BEGIN(INITIAL);
 		yylval.cval = str_buf[0];
 		
 		if (str_len>1) {
 			yytext[0] = str_buf[0];
-			yyerror("warning: multi-byte character constant truncated to first byte"); 
+			yyerror("warning: multi-byte character constant truncated to first byte: %s",yytext); 
 		}
 		else if (str_len == 0) {
 			yytext[0] = 0;
@@ -128,7 +129,7 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 	}
 }
     
-<CHAR,STR>{
+<CHARA,STR>{
     \\a          { if (str_len++<MAX_STR_LEN) *buf_ptr++ = '\a'; }
     \\b          { if (str_len++<MAX_STR_LEN) *buf_ptr++ = '\b'; }
     \\f          { if (str_len++<MAX_STR_LEN) *buf_ptr++ = '\f'; }
@@ -146,7 +147,7 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 	    int val;
 		sscanf(yytext+1, "%o", &val);
 		if (val > 0xff) 
-			yyerror("warning: octal escape sequence out of range");
+			yyerror("warning: octal escape sequence out of range: %s",yytext);
 		*buf_ptr++ = val;
 		str_len++;
 	}
@@ -155,13 +156,13 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 	    int val;
 		sscanf(yytext+2, "%x", &val);
 		if (val > 0xff) 
-			yyerror("warning: hex escape sequence out of range");
+			yyerror("warning: hex escape sequence out of range: %s",yytext);
 		*buf_ptr++ = val;
 		str_len++;
 	}
 	\\x" "       { yyerror("error: \\x used with no following hex digits"); }
     \n           { yyerror("error: unexpected newline"); }
-	\\.          { yyerror("warning: unknown escape sequence"); if (str_len++<MAX_STR_LEN) *buf_ptr++ = yytext[1]; }
+	\\.          { yyerror("warning: unknown escape sequence %s",yytext); if (str_len++<MAX_STR_LEN) *buf_ptr++ = yytext[1]; }
 	.            { strcpy(buf_ptr,yytext); buf_ptr += yyleng; str_len += yyleng; }
 }
 
@@ -218,6 +219,7 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 .           { yyerror("error: unexpected token"); }
 
 %%
+/*
 main() {
 	int i, t;
 	strcpy(filename,"<stdin>");
@@ -296,7 +298,7 @@ main() {
 		
 		switch(t) {
 		case IDENT:
-			printf("%s",yylval.idval);
+			printf("%s",yylval.sval);
 			break;
 		case CHARLIT:
 			print_escaped_char(yylval.cval);
@@ -306,7 +308,7 @@ main() {
 				print_escaped_char(yylval.sval[i]);
 			break;
 		case NUMBER:
-			if (yylval.num.ntype>=N_FLOAT /* Real number */) {
+			if (yylval.num.ntype>=N_FLOAT) {
 				printf("REAL\t%Lg\t",yylval.num.rval);
 				switch(yylval.num.ntype) {
 				case N_FLOAT: printf("FLOAT"); break;
@@ -329,6 +331,7 @@ main() {
 		putchar('\n');
 	}
 }
+*/
 
 void get_int_info() {
 	int i;
@@ -378,6 +381,12 @@ void print_escaped_char(char c) {
 	}
 }
 
-void yyerror(char *s) {
-	fprintf(stderr,"%s:%d: %s: %s\n", filename, yylineno, s, yytext);
+void yyerror(char *s, ...) {
+	va_list args;
+	char buffer[MAX_STR_LEN];
+
+	va_start(args,s);
+	vsnprintf(buffer,MAX_STR_LEN-1,s,args);
+	va_end(args);
+	fprintf(stderr,"%s:%d: %s\n",filename, yylineno, buffer);
 }
