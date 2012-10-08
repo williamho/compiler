@@ -1,17 +1,16 @@
-a: bin/y.tab.o bin/lex.yy.o
-	gcc -g -o a bin/y.tab.o bin/lex.yy.o
+a: bin/y.tab.o bin/lex.yy.o bin/symtable.o
+	gcc -g -o a bin/symtable.o bin/y.tab.o bin/lex.yy.o 
 
-bin/y.tab.o: y.tab.c 
-	gcc -c y.tab.c -o bin/y.tab.o
-
-bin/lex.yy.o: lex.yy.c
-	gcc -c lex.yy.c -o bin/lex.yy.o
-
-y.tab.c: parser.y
+bin/symtable.o: symtable.c 
+	gcc -c symtable.c -o bin/symtable.o
+	
+bin/y.tab.o: parser.y
 	bison -d parser.y -y
-
-lex.yy.c: lexer.l
+	gcc -c y.tab.c -o bin/y.tab.o
+	
+bin/lex.yy.o: lexer.l
 	flex lexer.l
+	gcc -c lex.yy.c -o bin/lex.yy.o
 
 clean:
 	rm -f *.o

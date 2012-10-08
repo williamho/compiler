@@ -5,9 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "symtable.h"
 
 extern int yylex();
 extern int yyparse(void);
+extern char *filename;
 %}
 
 %code requires {
@@ -44,18 +46,16 @@ extern int yyparse(void);
 %type <num.ival> rel_expr eq_expr and_expr xor_expr or_expr log_and_expr
 %type <num.ival> log_or_expr cond_expr postfix_expr asgn_expr expr
 
-%nonassoc IDENT CHARLIT STRING
-%right '='
-%left '+' '-'
-%left '*' '/'
-%left '(' ')'
-
 %%
 start
+	:decl
+	|stmt
+	|start decl
+	|start stmt
+	;
+
+stmt
 	:expr ';' { yyerror("%lld",$1); }
-	|decl ';'
-	|start expr ';' { yyerror("%lld",$2); }
-	|start decl ';'
 	;
 
 primary_expr
@@ -210,7 +210,7 @@ cond_expr
 	}
 	|log_or_expr
 	;
-	
+
 asgn_expr
 	:cond_expr
 	|unary_expr '=' asgn_expr { /* modify value in symtable */ } 
@@ -232,13 +232,21 @@ expr
 	;
 	
 decl
-	:INT ident_list
+	:INT ident_list ';'
 	;
 	
 ident_list
-	:ident_list ',' IDENT
+	:ident_list ',' IDENT { 
+		if (!new_sym($3)) {
+			struct symbol *sym = get_sym($3);
+			yyerror("redeclaration of '%s' previously declared at %s %d", $3, sym->fname, sym->line);
+		}
+	}
 	|IDENT { 
-		// check if exists in symbol table, if not, add it
+		if (!new_sym($1)) {
+			struct symbol *sym = get_sym($1);
+			yyerror("redeclaration of '%s' previously declared at %s %d", $1, sym->fname, sym->line);
+		}
 	}
 	;
 	

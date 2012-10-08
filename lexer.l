@@ -7,7 +7,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include "y.tab.h"
-#define MAX_STR_LEN 1024
+#include "file_info.h"
 YYSTYPE yylval;
 
 void yyerror(char *s, ...); 
@@ -16,8 +16,9 @@ void get_real_info();
 void print_escaped_char(char c);
 
 int str_len;
+int line_num=1;
 char str_buf[MAX_STR_LEN];
-char filename[MAX_STR_LEN];
+char filename[MAX_STR_LEN] = "<stdin>";
 char *buf_ptr;
 %}
 
@@ -35,7 +36,7 @@ FLOATSUFFIX [fFlL]
 
 # { BEGIN(LINENUM); }
 <LINENUM>{
-	[0-9]+ { yylineno = atoi(yytext); BEGIN(FILENAME);  }
+	[0-9]+ { line_num = atoi(yytext); BEGIN(FILENAME);  }
 	.      { }
 }
 <FILENAME>{
@@ -214,7 +215,7 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 "|"         { return('|'); }
 "?"         { return('?'); }
 
-\n          { yylineno++; }
+\n          { line_num++; }
 [ \t\v\f] {}
 .           { yyerror("error: unexpected token"); }
 
@@ -224,7 +225,7 @@ main() {
 	int i, t;
 	strcpy(filename,"<stdin>");
 	while (t = yylex()) {
-		printf("%s\t%d\t",filename,yylineno);
+		printf("%s\t%d\t",filename,line_num);
 		switch(t) {
 		case IDENT: printf("IDENT"); break;
 		case CHARLIT: printf("CHARLIT"); break;
@@ -388,5 +389,5 @@ void yyerror(char *s, ...) {
 	va_start(args,s);
 	vsnprintf(buffer,MAX_STR_LEN-1,s,args);
 	va_end(args);
-	fprintf(stderr,"%s:%d: %s\n",filename, yylineno, buffer);
+	fprintf(stderr,"%s:%d: %s\n",filename, line_num, buffer);
 }
