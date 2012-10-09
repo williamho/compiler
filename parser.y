@@ -87,9 +87,9 @@ func_def
 	;
 	
 func_def_spec
-	:IDENT '(' ')' { 
+	:IDENT '(' ')' { // To be added: prototype scope
 		if (new_sym($1)) 
-			new_symtable(S_FUNC);
+			scope = S_FUNC;
 		else {
 			struct symbol *sym = get_sym($1);
 			yyerror("error: redefinition of '%s' previously declared at %s %d", $1, sym->fname, sym->line);
@@ -208,8 +208,15 @@ cast_expr
 	
 mult_expr
 	:mult_expr '*' cast_expr { $$ = $1 * $3; }
-	|mult_expr '/' cast_expr { $$ = $1 / $3; }
 	|mult_expr '%' cast_expr { $$ = $1 % $3; }
+	|mult_expr '/' cast_expr { 
+		if (!$3) {
+			yyerror("error: divide by 0");
+			$$ = 0; //technically, undefined
+		}
+		else
+			$$ = $1 / $3; 
+	}
 	|cast_expr
 	;
 
@@ -273,7 +280,6 @@ cond_expr
 	;
 
 lvalue
-	//:unary_expr
 	:IDENT { 
 		if (!($$ = get_sym($1)))
 			yyerror("error: undeclared identifier '%s'", $1);
