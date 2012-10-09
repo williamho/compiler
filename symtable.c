@@ -16,10 +16,14 @@ struct symtable *new_symtable(int stype) {
 	return cur_symtable;
 }
 
-void remove_symtable() {
+int remove_symtable() {
 	struct symtable *old = cur_symtable;
 	cur_symtable = old->prev;
 	free(old);
+	
+	if (!cur_symtable)
+		return -1; // Somehow outside of global scope
+	return 0;
 }
 
 unsigned long hash(unsigned char *str) {
@@ -90,4 +94,18 @@ int set_sym(char *sname, long long sval) {
 	
 	// later, modify to handle type mismatches
 	return 1; //symbol doesn't exist
+}
+
+int set_sym_p(struct symbol *sym, long long sval) {
+	if (sym) {
+		sym->val = sval;
+		return 0;
+	}
+	return 1;
+}
+
+long long get_sym_p(struct symbol *sym) {
+	if (sym) 
+		return sym->val;
+	return -1; // symbol undefined
 }

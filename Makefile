@@ -13,4 +13,4 @@ bin/lex.yy.o: lexer.l
 	gcc -c lex.yy.c -o bin/lex.yy.o
 
 clean:
-	rm -f *.o
+	rm -rf bin/*.o y.tab.* *.output *.out

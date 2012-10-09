@@ -14,7 +14,7 @@ struct symbol {
 	int line;
 };
 
-enum symtable_types {
+enum scope_types {
 	S_FILE, S_BLOCK, S_FUNC, S_PROTO
 };
 
@@ -25,10 +25,11 @@ struct symtable {
 };
 
 struct symtable *new_symtable(int stype);
-void remove_symtable();
+int remove_symtable();
 unsigned long hash(unsigned char *str);
 struct symbol *new_sym(char *sname);
 struct symbol *get_sym(char *sname);
+long long get_sym_p(struct symbol *sym);
 int set_sym(char *sname, long long sval);
-
+int set_sym_p(struct symbol *sym, long long sval);
 #endif
