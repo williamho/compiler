@@ -54,16 +54,15 @@ int scope;
 
 %%
 
-start
+translation_unit
 	:top_level_decl { scope=S_FILE; }
-	|start top_level_decl { scope=S_FILE; }
+	|translation_unit top_level_decl { scope=S_FILE; }
 	;
 
 top_level_decl
 	:decl
 	|func_def
 	;
-
 	
 stmt
 	:compound_stmt
@@ -77,9 +76,10 @@ compound_stmt
 	;
 
 decl_or_stmt_list
-	:decl_list stmt_list
-	|decl_list
-	|stmt_list
+	:decl_or_stmt_list decl
+	|decl_or_stmt_list stmt
+	|decl
+	|stmt
 	;
 	
 func_def
@@ -96,16 +96,6 @@ func_def_spec
 			// later, distinguish between namespaces
 		}
 	}
-	;
-
-decl_list
-	:decl_list decl
-	|decl
-	;
-	
-stmt_list
-	:stmt_list stmt
-	|stmt
 	;
 	
 expr_list
@@ -210,12 +200,12 @@ mult_expr
 	:mult_expr '*' cast_expr { $$ = $1 * $3; }
 	|mult_expr '%' cast_expr { $$ = $1 % $3; }
 	|mult_expr '/' cast_expr { 
-		if (!$3) {
+		if ($3) 
+			$$ = $1 / $3; 
+		else {
 			yyerror("error: divide by 0");
 			$$ = 0; //technically, undefined
 		}
-		else
-			$$ = $1 / $3; 
 	}
 	|cast_expr
 	;

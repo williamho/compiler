@@ -107,5 +107,5 @@ int set_sym_p(struct symbol *sym, long long sval) {
 long long get_sym_p(struct symbol *sym) {
 	if (sym) 
 		return sym->val;
-	return -1; // symbol undefined
+	yyerror("symbol undefined");
 }

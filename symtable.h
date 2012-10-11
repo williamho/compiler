@@ -7,9 +7,8 @@
 struct symbol {
 	char *name;
 	long long val;
-	struct symbol *next;
+	struct symbol *next; // ptr to next sym in symtable with same hashval
 	
-	// the following are currently unused
 	char *fname;
 	int line;
 };
