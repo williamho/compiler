@@ -6,313 +6,467 @@
 #include <stdlib.h>
 #include <string.h>
 #include "symtable.h"
+#include "declarations.h"
 
 extern int yylex();
 extern int yyparse(void);
 extern char *filename;
 
-int scope;
+int cur_scope;
+char type_flags[TS_COUNT];
 %}
-
-%code requires {
-	enum ntype {
-		N_INT, N_LONG, N_LONGLONG, N_FLOAT, N_DOUBLE, N_LONGDOUBLE
-	};
-}
 
 %union{
 	char cval;
 	char *sval;
 	
 	struct num {
-		int ntype;  /* 0: int,   1: long,   2: long long, 
-					   3: float, 4: double, 5: long double */
+		int ntype;  // int, long, long long, float, double, long double
 		int is_unsigned;
-		long long ival;
+		unsigned long long ival;
 		long double rval;
 	} num;
 	
-	struct symbol *lval;
+	struct generic_node *lval;
 }
 
 %token <cval> CHARLIT
-%token <sval> STRING IDENT
+%token <sval> STRING IDENT TYPENAME
 %token <num> NUMBER
 
-%token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ LOGAND LOGOR 
-%token ELLIPSIS TIMESEQ DIVEQ MODEQ PLUSEQ MINUSEQ SHLEQ SHREQ ANDEQ OREQ 
-%token XOREQ AUTO BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE ENUM 
-%token EXTERN FLOAT FOR GOTO IF INLINE INT LONG REGISTER RESTRICT RETURN SHORT 
-%token SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF UNION UNSIGNED VOID VOLATILE 
-%token WHILE _BOOL _COMPLEX _IMAGINARY
-
+/*
 %type <num.ival> primary_expr cast_expr unary_expr mult_expr add_expr shift_expr
 %type <num.ival> rel_expr eq_expr and_expr xor_expr or_expr log_and_expr
 %type <num.ival> log_or_expr cond_expr postfix_expr asgn_expr expr
+*/
 
-%type <lval> lvalue
+%token SIZEOF INLINE
+%token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
+%token LOGAND LOGOR TIMESEQ DIVEQ MODEQ PLUSEQ
+%token MINUSEQ SHLEQ SHREQ ANDEQ
+%token XOREQ OREQ TYPEDEF_NAME
 
+%token TYPEDEF EXTERN STATIC AUTO REGISTER CONST VOLATILE RESTRICT 
+%token CHAR SHORT INT LONG SIGNED UNSIGNED FLOAT DOUBLE VOID
+%token _BOOL _COMPLEX _IMAGINARY 
+%token STRUCT UNION ENUM ELLIPSIS
+
+%token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
+
+%start translation_unit
 %%
 
+/* +===========+
+   | TOP LEVEL |
+   +===========+ */
+
 translation_unit
-	:top_level_decl { scope=S_FILE; }
-	|translation_unit top_level_decl { scope=S_FILE; }
+	:external_decl
+	|translation_unit external_decl
 	;
 
-top_level_decl
-	:decl
-	|func_def
-	;
-	
-stmt
-	:compound_stmt
-	|expr ';' { yyerror("exprval=%lld",$1); }
-	|';'
-	;
-	
-compound_stmt
-	:'{' '}'
-	|'{' { new_symtable(scope); scope=S_BLOCK; } decl_or_stmt_list '}' { remove_symtable(); }
-	;
-
-decl_or_stmt_list
-	:decl_or_stmt_list decl
-	|decl_or_stmt_list stmt
+external_decl
+	:function_definition
 	|decl
-	|stmt
-	;
-	
-func_def
-	:func_def_spec { scope=S_FUNC; } compound_stmt
-	;
-	
-func_def_spec
-	:IDENT '(' ')' { // To be added: prototype scope
-		if (new_sym($1)) 
-			scope = S_FUNC;
-		else {
-			struct symbol *sym = get_sym($1);
-			yyerror("error: redefinition of '%s' previously declared at %s %d", $1, sym->fname, sym->line);
-			// later, distinguish between namespaces
-		}
-	}
-	;
-	
-expr_list
-	:asgn_expr
-	|expr_list ',' asgn_expr
 	;
 
-init
-	:asgn_expr
-	|'{' init_list '}'
-	|'{' init_list ',' '}'
-	;
-	
-init_list
-	:init
-	|init_list ',' init
-	|designation init
-	|init_list ',' designation init
-	;
-	
-designation
-	:desig_list '='
-	;
-	
-desig_list
-	:designator
-	|desig_list designator
-	;
-	
-designator
-	:'[' NUMBER ']'
-	|'[' CHARLIT ']'
-	|'[' STRING ']'
-	|'.' IDENT
+function_definition
+	:decl_specs declarator decl_list compound_stmt
+	|decl_specs declarator compound_stmt
+	|declarator decl_list compound_stmt
+	|declarator compound_stmt
 	;
 
+/* +==============+
+   | DECLARATIONS |
+   +==============+ */
+	
+decl
+	:decl_specs ';'
+	|decl_specs init_declarator_list ';'
+	;
+
+decl_specs
+	:storage_class_spec
+	|storage_class_spec decl_specs
+	|type_spec
+	|type_spec decl_specs
+	|type_qual
+	|type_qual decl_specs
+	|INLINE
+	|INLINE decl_specs
+	;
+
+init_declarator_list
+	:init_declarator
+	|init_declarator_list ',' init_declarator
+	;
+
+init_declarator
+	:declarator
+	|declarator '=' initializer
+	;
+
+storage_class_spec
+	:TYPEDEF
+	|EXTERN
+	|STATIC
+	|AUTO
+	|REGISTER
+	;
+	
+type_spec	// Set flags and check for illegal type_spec combinations after
+	:VOID { type_flags[TS_VOID]++; }
+	|CHAR { type_flags[TS_CHAR]++; }
+	|SHORT { type_flags[TS_SHORT]++; }
+	|INT { type_flags[TS_INT]++; }
+	|LONG { type_flags[TS_LONG]++; }
+	|FLOAT { type_flags[TS_FLOAT]++; }
+	|DOUBLE { type_flags[TS_DOUBLE]++; }
+	|SIGNED { type_flags[TS_SIGNED]++; }
+	|UNSIGNED { type_flags[TS_UNSIGNED]++; }
+	|_BOOL { type_flags[TS_BOOL]++; }
+	|_COMPLEX { type_flags[TS_COMPLEX]++; }
+	|struct_or_union_spec { type_flags[TS_STRUCT]++; }
+	|enum_spec { type_flags[TS_ENUM]++; }
+	|TYPEDEF_NAME { type_flags[TS_TYPENAME]++; }
+	;
+
+struct_or_union_spec
+	:struct_or_union IDENT '{' struct_decl_list '}'
+	|struct_or_union '{' struct_decl_list '}'
+	|struct_or_union IDENT
+	;
+
+struct_or_union
+	:STRUCT
+	|UNION
+	;
+
+struct_decl_list
+	:struct_decl
+	|struct_decl_list struct_decl
+	;
+
+struct_decl
+	:spec_qual_list struct_declarator_list ';'
+	;
+
+spec_qual_list
+	:type_spec spec_qual_list
+	|type_spec
+	|type_qual spec_qual_list
+	|type_qual
+	;
+
+struct_declarator_list
+	:struct_declarator
+	|struct_declarator_list ',' struct_declarator
+	;
+
+struct_declarator
+	:declarator
+	|':' const_expr
+	|declarator ':' const_expr
+	;
+
+enum_spec
+	:ENUM '{' enumerator_list '}'
+	|ENUM IDENT '{' enumerator_list '}'
+	|ENUM IDENT
+	;
+
+enumerator_list
+	:enumerator
+	|enumerator_list ',' enumerator
+	;
+
+enumerator
+	:IDENT
+	|IDENT '=' const_expr
+	;
+
+type_qual
+	:CONST
+	|RESTRICT
+	|VOLATILE
+	;
+
+declarator
+	:pointer direct_declarator
+	|direct_declarator
+	;
+
+direct_declarator
+	:IDENT
+	|'(' declarator ')'
+	|direct_declarator '[' const_expr ']'
+	|direct_declarator '[' ']'
+	|direct_declarator '(' param_type_list ')'
+	|direct_declarator '(' IDENT_list ')'
+	|direct_declarator '(' ')'
+	;
+
+pointer
+	:'*'
+	|'*' type_qual_list
+	|'*' pointer
+	|'*' type_qual_list pointer
+	;
+
+type_qual_list
+	:type_qual
+	|type_qual_list type_qual
+	;
+
+
+param_type_list
+	:param_list
+	|param_list ',' ELLIPSIS
+	;
+
+param_list
+	:param_decl
+	|param_list ',' param_decl
+	;
+
+param_decl
+	:decl_specs declarator
+	|decl_specs abstract_declarator
+	|decl_specs
+	;
+
+IDENT_list
+	:IDENT
+	|IDENT_list ',' IDENT
+	;
+
+type_name
+	:spec_qual_list
+	|spec_qual_list abstract_declarator
+	;
+
+abstract_declarator
+	:pointer
+	|direct_abstract_declarator
+	|pointer direct_abstract_declarator
+	;
+
+direct_abstract_declarator
+	:'(' abstract_declarator ')'
+	|'[' ']'
+	|'[' const_expr ']'
+	|direct_abstract_declarator '[' ']'
+	|direct_abstract_declarator '[' const_expr ']'
+	|'(' ')'
+	|'(' param_type_list ')'
+	|direct_abstract_declarator '(' ')'
+	|direct_abstract_declarator '(' param_type_list ')'
+	;
+
+initializer
+	:asgn_expr
+	|'{' initializer_list '}'
+	|'{' initializer_list ',' '}'
+	;
+
+initializer_list
+	:initializer
+	|initializer_list ',' initializer
+	;
+	
+/* +=============+
+   | EXPRESSIONS |
+   +=============+ */
+	
 primary_expr
-	:IDENT {
-		struct symbol *sym = get_sym($1);
-		if (sym)
-			$$ = sym->val;
-		else {
-			$$ = 0;
-			yyerror("error: undeclared identifier '%s'", $1);	
-		}
-	}
-	|NUMBER { 
-		if ($1.ntype >= N_FLOAT) {
-			yyerror("warning: Truncating real number %Lg to integer %lld",$1.rval,(long long)$1.rval); 
-			$$ = (long long)$1.rval;
-		}
-		else
-			$$ = $1.ival;
-	}
-	|CHARLIT { $$ = (long long)$1; }
-	|STRING { $$ = (long long)$1; }
-	|'(' expr ')' { $$ = (long long)$2; }
+	:IDENT
+	|NUMBER
+	|STRING
+	|'(' expr ')'
 	;
 
 postfix_expr
-	:postfix_expr '[' expr ']' {  
-		yyerror("warning: arrays not implemented");
-		$$ = 0; // change later
-	}
-	|postfix_expr '.' IDENT {
-		yyerror("warning: structs/unions not implemented");
-		$$ = 0; // change later
-	}
-	|postfix_expr INDSEL IDENT {
-		yyerror("warning: structs/unions not implemented");
-		$$ = 0; // change later
-	}
+	:primary_expr
+	|postfix_expr '[' expr ']'
 	|postfix_expr '(' ')'
-	|postfix_expr '(' expr_list ')'
-	|lvalue PLUSPLUS { $$ = get_sym_p($1); set_sym_p($1,$$+1); }
-	|lvalue MINUSMINUS { $$ = get_sym_p($1); set_sym_p($1,$$-1); }
-	|'(' INT ')' '{' init_list ',' '}' {$$ = 1; /* change later*/}
-	|'(' INT ')' '{' init_list '}' {$$ = 1; /* change later*/}
-	|primary_expr
+	|postfix_expr '(' arg_expr_list ')'
+	|postfix_expr '.' IDENT
+	|postfix_expr INDSEL IDENT
+	|postfix_expr PLUSPLUS
+	|postfix_expr MINUSMINUS
 	;
-	
+
+arg_expr_list
+	:asgn_expr
+	|arg_expr_list ',' asgn_expr
+	;
+
 unary_expr
 	:postfix_expr
-	|SIZEOF '(' INT ')' { $$ = sizeof(long long); /* change later */ }
-	|SIZEOF unary_expr  { $$ = sizeof($2); /* change later */ }
-	|'-' cast_expr { $$ = -$2; }
-	|'+' cast_expr { $$ = $2; }
-	|'!' cast_expr { $$ = !$2; }
-	|'~' cast_expr { $$ = ~$2; }
-	|'&' cast_expr { $$ = (long long)&$2; /*address*/}
-	|'*' cast_expr { $$ = $2; /* pointers don't exist yet */}
-	|PLUSPLUS lvalue { $$ = get_sym_p($2)+1; set_sym_p($2,$$); }
-	|MINUSMINUS lvalue { $$ = get_sym_p($2)-1; set_sym_p($2,$$); }
+	|PLUSPLUS unary_expr
+	|MINUSMINUS unary_expr
+	|'&' cast_expr
+	|'*' cast_expr
+	|'+' cast_expr
+	|'-' cast_expr
+	|'~' cast_expr
+	|'!' cast_expr
+	|SIZEOF unary_expr
+	|SIZEOF '(' type_name ')'
 	;
 
 cast_expr
 	:unary_expr
-	|'(' INT ')' cast_expr { $$ = (long long) $4; /* change later */ }
-	;
-	
-mult_expr
-	:mult_expr '*' cast_expr { $$ = $1 * $3; }
-	|mult_expr '%' cast_expr { $$ = $1 % $3; }
-	|mult_expr '/' cast_expr { 
-		if ($3) 
-			$$ = $1 / $3; 
-		else {
-			yyerror("error: divide by 0");
-			$$ = 0; //technically, undefined
-		}
-	}
-	|cast_expr
+	|'(' type_name ')' cast_expr
 	;
 
+mult_expr
+	:cast_expr
+	|mult_expr '*' cast_expr
+	|mult_expr '/' cast_expr
+	|mult_expr '%' cast_expr
+	;
 
 add_expr
-	:add_expr '+' mult_expr { $$ = $1 + $3; }
-	|add_expr '-' mult_expr { $$ = $1 - $3; }
-	|mult_expr
+	:mult_expr
+	|add_expr '+' mult_expr
+	|add_expr '-' mult_expr
 	;
-	
+
 shift_expr
-	:shift_expr SHL add_expr { $$ = $1 << $3; }
-	|shift_expr SHR add_expr { $$ = $1 >> $3; }
-	|add_expr
+	:add_expr
+	|shift_expr SHL add_expr
+	|shift_expr SHR add_expr
 	;
-	
+
 rel_expr
-	:rel_expr '<' shift_expr { $$ = $1 < $3; }
-	|rel_expr '>' shift_expr { $$ = $1 > $3; }
-	|rel_expr LTEQ shift_expr { $$ = $1 <= $3; }
-	|rel_expr GTEQ shift_expr { $$ = $1 >= $3; }
-	|shift_expr
+	:shift_expr
+	|rel_expr '<' shift_expr
+	|rel_expr '>' shift_expr
+	|rel_expr LTEQ shift_expr
+	|rel_expr GTEQ shift_expr
 	;
 
 eq_expr
-	:eq_expr EQEQ rel_expr { $$ = $1 == $3; }
-	|eq_expr NOTEQ rel_expr { $$ = $1 != $3; }
-	|rel_expr
+	:rel_expr
+	|eq_expr EQEQ rel_expr
+	|eq_expr NOTEQ rel_expr
 	;
-	
+
 and_expr
-	:and_expr '&' eq_expr { $$ = $1 & $3; }
-	|eq_expr
+	:eq_expr
+	|and_expr '&' eq_expr
 	;
 
 xor_expr
-	:xor_expr '^' and_expr { $$ = $1 ^ $3; }
-	|and_expr
+	:and_expr
+	|xor_expr '^' and_expr
 	;
 
 or_expr
-	:or_expr '|' xor_expr { $$ = $1 | $3; }
-	|xor_expr
+	:xor_expr
+	|or_expr '|' xor_expr
 	;
-	
+
 log_and_expr
-	:log_and_expr LOGAND or_expr { $$ = $1 && $3; }
-	|or_expr
+	:or_expr
+	|log_and_expr LOGAND or_expr
 	;
 
 log_or_expr
-	:log_or_expr LOGOR log_and_expr { $$ = $1 || $3; }
-	|log_and_expr
-	;
-	
-cond_expr
-	:log_or_expr '?' expr ':' cond_expr {
-		$$ = $1 ? $3 : $5;
-	}
-	|log_or_expr
+	:log_and_expr
+	|log_or_expr LOGOR log_and_expr
 	;
 
-lvalue
-	:IDENT { 
-		if (!($$ = get_sym($1)))
-			yyerror("error: undeclared identifier '%s'", $1);
-	}
+cond_expr
+	:log_or_expr
+	|log_or_expr '?' expr ':' cond_expr
 	;
-	
+
 asgn_expr
 	:cond_expr
-	|lvalue '=' asgn_expr { $$ = $3; set_sym_p($1,$$); } 
-	|lvalue TIMESEQ asgn_expr { $$ = $1->val * $3; set_sym_p($1,$$); } 
-	|lvalue DIVEQ asgn_expr { $$ = $1->val / $3; set_sym_p($1,$$); } 
-	|lvalue MODEQ asgn_expr { $$ = $1->val % $3; set_sym_p($1,$$); } 
-	|lvalue PLUSEQ asgn_expr { $$ = $1->val + $3; set_sym_p($1,$$); } 
-	|lvalue MINUSEQ asgn_expr { $$ = $1->val - $3; set_sym_p($1,$$); } 
-	|lvalue SHLEQ asgn_expr { $$ = $1->val << $3; set_sym_p($1,$$); } 
-	|lvalue SHREQ asgn_expr { $$ = $1->val >> $3; set_sym_p($1,$$); } 
-	|lvalue ANDEQ asgn_expr { $$ = $1->val & $3; set_sym_p($1,$$); } 
-	|lvalue OREQ asgn_expr { $$ = $1->val | $3; set_sym_p($1,$$); } 
-	|lvalue XOREQ asgn_expr { $$ = $1->val ^ $3; set_sym_p($1,$$); } 
+	|unary_expr '=' asgn_expr
+	|unary_expr DIVEQ asgn_expr
+	|unary_expr MODEQ asgn_expr
+	|unary_expr PLUSEQ asgn_expr
+	|unary_expr MINUSEQ asgn_expr
+	|unary_expr SHLEQ asgn_expr
+	|unary_expr SHREQ asgn_expr
+	|unary_expr ANDEQ asgn_expr
+	|unary_expr XOREQ asgn_expr
+	|unary_expr OREQ asgn_expr
 	;
-	
+
 expr
-	:expr ',' asgn_expr { $$ = $3; } 
-	|asgn_expr
+	:asgn_expr
+	|expr ',' asgn_expr
 	;
-	
-decl
-	:INT ident_list ';'
+
+const_expr
+	:cond_expr
 	;
+
+/* +============+
+   | STATEMENTS |
+   +============+ */
 	
-ident_list
-	:ident_list ',' IDENT { 
-		if (!new_sym($3)) {
-			struct symbol *sym = get_sym($3);
-			yyerror("error: redeclaration of '%s' previously declared at %s %d", $3, sym->fname, sym->line);
-		}
-	}
-	|IDENT { 
-		if (!new_sym($1)) {
-			struct symbol *sym = get_sym($1);
-			yyerror("error: redeclaration of '%s' previously declared at %s %d", $1, sym->fname, sym->line);
-		}
-	}
+stmt
+	:labeled_stmt
+	|compound_stmt
+	|expr_stmt
+	|selection_stmt
+	|iteration_stmt
+	|jump_stmt
+	;
+
+labeled_stmt
+	:IDENT ':' stmt
+	|CASE const_expr ':' stmt
+	|DEFAULT ':' stmt
+	;
+
+compound_stmt
+	:'{' '}'
+	|'{' stmt_list '}'
+	|'{' decl_list '}'
+	|'{' decl_list stmt_list '}'
+	;
+
+decl_list
+	:decl
+	|decl_list decl
+	;
+
+stmt_list
+	:stmt
+	|stmt_list stmt
+	;
+
+expr_stmt
+	:';'
+	|expr ';'
+	;
+
+selection_stmt
+	:IF '(' expr ')' stmt
+	|IF '(' expr ')' stmt ELSE stmt
+	|SWITCH '(' expr ')' stmt
+	;
+
+iteration_stmt
+	:WHILE '(' expr ')' stmt
+	|DO stmt WHILE '(' expr ')' ';'
+	|FOR '(' expr_stmt expr_stmt ')' stmt
+	|FOR '(' expr_stmt expr_stmt expr ')' stmt
+	;
+
+jump_stmt
+	:GOTO IDENT ';'
+	|CONTINUE ';'
+	|BREAK ';'
+	|RETURN ';'
+	|RETURN expr ';'
 	;
 	
 %%

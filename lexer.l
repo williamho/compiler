@@ -7,10 +7,13 @@
 #include <stdarg.h>
 #include <string.h>
 #include "y.tab.h"
+#include "symtable.h"
 #include "file_info.h"
 YYSTYPE yylval;
 
 void yyerror(char *s, ...); 
+void yywarn(char *s, ...); 
+void yyprint(char *s, ...); 
 void get_int_info();
 void get_real_info();
 void print_escaped_char(char c);
@@ -83,7 +86,16 @@ _Bool      { return _BOOL; }
 _Complex   { return _COMPLEX; }
 _Imaginary { return _IMAGINARY; }
 
-{ALPHA}[a-zA-Z0-9]*  { yylval.sval = strdup(yytext); return IDENT; }
+{ALPHA}[a-zA-Z0-9]*  { 
+	struct generic_node *node;
+	yylval.sval = strdup(yytext); 
+	
+	// check if typedef
+	if ((node = get_sym(yylval.sval)) && node->nodetype == N_TYPEDEF)
+		return TYPEDEF_NAME;
+			
+	return IDENT; 
+}
 
 {NUM}+{EXP}{FLOATSUFFIX}?      { get_real_info(); return NUMBER; }
 {NUM}*\.{NUM}+{EXP}?{FLOATSUFFIX}? { get_real_info(); return NUMBER; }
@@ -106,11 +118,11 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 		
 		if (str_len>1) {
 			yytext[0] = str_buf[0];
-			yyerror("warning: multi-byte character constant truncated to first byte: %s",yytext); 
+			yywarn("multi-byte character constant truncated to first byte: %s",yytext); 
 		}
 		else if (str_len == 0) {
 			yytext[0] = 0;
-			yyerror("error: empty character constant"); 
+			yyerror("empty character constant"); 
 		}
 		return CHARLIT;
 	}
@@ -121,7 +133,7 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
         BEGIN(INITIAL);
 		if (str_len>MAX_STR_LEN) {
 			str_len = MAX_STR_LEN;
-			yyerror("warning: string length exceeds maximum length");
+			yywarn("string length exceeds maximum length");
 		}
 		*buf_ptr++ = 0;
 		yylval.sval = malloc(str_len+1);
@@ -148,7 +160,7 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 	    int val;
 		sscanf(yytext+1, "%o", &val);
 		if (val > 0xff) 
-			yyerror("warning: octal escape sequence out of range: %s",yytext);
+			yywarn("octal escape sequence out of range: %s",yytext);
 		*buf_ptr++ = val;
 		str_len++;
 	}
@@ -157,13 +169,13 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 	    int val;
 		sscanf(yytext+2, "%x", &val);
 		if (val > 0xff) 
-			yyerror("warning: hex escape sequence out of range: %s",yytext);
+			yywarn("hex escape sequence out of range: %s",yytext);
 		*buf_ptr++ = val;
 		str_len++;
 	}
-	\\x" "       { yyerror("error: \\x used with no following hex digits"); }
-    \n           { yyerror("error: unexpected newline"); }
-	\\.          { yyerror("warning: unknown escape sequence %s",yytext); if (str_len++<MAX_STR_LEN) *buf_ptr++ = yytext[1]; }
+	\\x" "       { yyerror("\\x used with no following hex digits"); }
+    \n           { yyerror("unexpected newline"); }
+	\\.          { yywarn("unknown escape sequence %s",yytext); if (str_len++<MAX_STR_LEN) *buf_ptr++ = yytext[1]; }
 	.            { strcpy(buf_ptr,yytext); buf_ptr += yyleng; str_len += yyleng; }
 }
 
@@ -217,7 +229,7 @@ L?\"                 { BEGIN(STR); str_len=0; buf_ptr=str_buf; }
 
 \n          { line_num++; }
 [ \t\v\f] {}
-.           { yyerror("error: unexpected token"); }
+.           { yyerror("unexpected token"); }
 
 %%
 /*
@@ -336,7 +348,8 @@ main() {
 
 void get_int_info() {
 	int i;
-	yylval.num.ntype = yylval.num.is_unsigned = 0;
+	yylval.num.is_unsigned = 0;
+	yylval.num.ntype = N_INT;
 	for (i=yyleng-1;; i--) {
 		if (yytext[i] == 'u' || yytext[i] == 'U')
 			yylval.num.is_unsigned = 1;
@@ -383,6 +396,26 @@ void print_escaped_char(char c) {
 }
 
 void yyerror(char *s, ...) {
+	va_list args;
+	char buffer[MAX_STR_LEN];
+
+	va_start(args,s);
+	vsnprintf(buffer,MAX_STR_LEN-1,s,args);
+	va_end(args);
+	fprintf(stderr,"%s:%d: error: %s\n",filename, line_num, buffer);
+}
+
+void yywarn(char *s, ...) {
+	va_list args;
+	char buffer[MAX_STR_LEN];
+
+	va_start(args,s);
+	vsnprintf(buffer,MAX_STR_LEN-1,s,args);
+	va_end(args);
+	fprintf(stderr,"%s:%d: warning: %s\n",filename, line_num, buffer);
+}
+
+void yyprint(char *s, ...) {
 	va_list args;
 	char buffer[MAX_STR_LEN];
 
