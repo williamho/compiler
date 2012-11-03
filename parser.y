@@ -13,12 +13,12 @@ extern int yyparse(void);
 extern char *filename;
 
 int cur_scope;
-char type_flags[TS_COUNT];
 %}
 
 %union{
 	char cval;
 	char *sval;
+	char spec;
 	
 	struct num {
 		int ntype;  // int, long, long long, float, double, long double
@@ -27,18 +27,19 @@ char type_flags[TS_COUNT];
 		long double rval;
 	} num;
 	
+	struct decl_spec {
+		char type_flags[TS_COUNT];
+		char storage_flags[SC_COUNT];
+	} flags;
+	
 	struct generic_node *lval;
 }
 
 %token <cval> CHARLIT
 %token <sval> STRING IDENT TYPENAME
 %token <num> NUMBER
-
-/*
-%type <num.ival> primary_expr cast_expr unary_expr mult_expr add_expr shift_expr
-%type <num.ival> rel_expr eq_expr and_expr xor_expr or_expr log_and_expr
-%type <num.ival> log_or_expr cond_expr postfix_expr asgn_expr expr
-*/
+%type <flags> decl_specs
+%type <spec> type_spec storage_class_spec 
 
 %token SIZEOF INLINE
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
@@ -82,54 +83,73 @@ function_definition
    +==============+ */
 	
 decl
-	:decl_specs ';'
-	|decl_specs init_declarator_list ';'
+	:decl_specs ';' {} // Declaring structs without initializing
+	|decl_specs init_declarator_list ';' {
+		check_type_specs($1.type_flags);
+		check_storage_classes($1.storage_flags);
+		// do stuff
+		print_decl_info($1.type_flags, $1.storage_flags);
+	}
 	;
 
 decl_specs
-	:storage_class_spec
-	|storage_class_spec decl_specs
-	|type_spec
-	|type_spec decl_specs
-	|type_qual
-	|type_qual decl_specs
-	|INLINE
-	|INLINE decl_specs
+	:storage_class_spec { 
+		memset($$.storage_flags,0,SC_COUNT); 
+		$$.storage_flags[$1]++; 
+	}
+	|storage_class_spec decl_specs { 
+		$$ = $2; 
+		$$.storage_flags[$1]++; 
+	}
+	|type_spec { 
+		memset($$.type_flags,0,TS_COUNT); 
+		$$.type_flags[$1]++; 
+	}
+	|type_spec decl_specs { 
+		$$ = $2; 
+		$$.type_flags[$1]++; 
+	}
+	|type_qual {}
+	|type_qual decl_specs {}
+	|INLINE {}
+	|INLINE decl_specs {}
 	;
 
 init_declarator_list
-	:init_declarator
+	:init_declarator {
+		
+	}
 	|init_declarator_list ',' init_declarator
 	;
 
 init_declarator
 	:declarator
-	|declarator '=' initializer
+	|declarator '=' initializer // Not implemented
 	;
 
 storage_class_spec
-	:TYPEDEF
-	|EXTERN
-	|STATIC
-	|AUTO
-	|REGISTER
+	:TYPEDEF { $$ = SC_TYPEDEF; }
+	|EXTERN { $$ = SC_EXTERN; }
+	|STATIC { $$ = SC_STATIC; }
+	|AUTO { $$ = SC_AUTO; }
+	|REGISTER { $$ = SC_REGISTER; }
 	;
 	
 type_spec	// Set flags and check for illegal type_spec combinations after
-	:VOID { type_flags[TS_VOID]++; }
-	|CHAR { type_flags[TS_CHAR]++; }
-	|SHORT { type_flags[TS_SHORT]++; }
-	|INT { type_flags[TS_INT]++; }
-	|LONG { type_flags[TS_LONG]++; }
-	|FLOAT { type_flags[TS_FLOAT]++; }
-	|DOUBLE { type_flags[TS_DOUBLE]++; }
-	|SIGNED { type_flags[TS_SIGNED]++; }
-	|UNSIGNED { type_flags[TS_UNSIGNED]++; }
-	|_BOOL { type_flags[TS_BOOL]++; }
-	|_COMPLEX { type_flags[TS_COMPLEX]++; }
-	|struct_or_union_spec { type_flags[TS_STRUCT]++; }
-	|enum_spec { type_flags[TS_ENUM]++; }
-	|TYPEDEF_NAME { type_flags[TS_TYPENAME]++; }
+	:VOID { $$ = TS_VOID; }
+	|CHAR { $$ = TS_CHAR; }
+	|SHORT { $$ = TS_SHORT; }
+	|INT { $$ = TS_INT; }
+	|LONG { $$ = TS_LONG; }
+	|FLOAT { $$ = TS_FLOAT; }
+	|DOUBLE { $$ = TS_DOUBLE; }
+	|SIGNED { $$ = TS_SIGNED; }
+	|UNSIGNED { $$ = TS_UNSIGNED; }
+	|_BOOL { $$ = TS_BOOL; }
+	|_COMPLEX { $$ = TS_COMPLEX; }
+	|struct_or_union_spec { $$ = TS_STRUCT; }
+	|enum_spec { $$ = TS_ENUM; }
+	|TYPEDEF_NAME { $$ = TS_TYPENAME; }
 	;
 
 struct_or_union_spec
@@ -187,9 +207,9 @@ enumerator
 	;
 
 type_qual
-	:CONST
-	|RESTRICT
-	|VOLATILE
+	:CONST {}
+	|RESTRICT {}
+	|VOLATILE {}
 	;
 
 declarator
@@ -288,7 +308,7 @@ primary_expr
 
 postfix_expr
 	:primary_expr
-	|postfix_expr '[' expr ']'
+	|postfix_expr '[' expr ']' 
 	|postfix_expr '(' ')'
 	|postfix_expr '(' arg_expr_list ')'
 	|postfix_expr '.' IDENT
@@ -404,7 +424,8 @@ expr
 	;
 
 const_expr
-	:cond_expr
+	//:cond_expr
+	:NUMBER
 	;
 
 /* +============+
@@ -428,19 +449,19 @@ labeled_stmt
 
 compound_stmt
 	:'{' '}'
-	|'{' stmt_list '}'
-	|'{' decl_list '}'
-	|'{' decl_list stmt_list '}'
+	|'{' decl_or_stmt_list '}'
 	;
 
+decl_or_stmt_list
+	:decl
+	|stmt
+	|decl_or_stmt_list decl
+	|decl_or_stmt_list stmt
+	;
+	
 decl_list
 	:decl
 	|decl_list decl
-	;
-
-stmt_list
-	:stmt
-	|stmt_list stmt
 	;
 
 expr_stmt

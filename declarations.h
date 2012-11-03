@@ -16,4 +16,6 @@ enum storage_classes {
  
 int check_storage_classes(char *sc);
 int check_type_specs(char *ts);
+void reset_storage_flags(char *sc);
+void print_decl_info(char *ts, char *sc);
 #endif
