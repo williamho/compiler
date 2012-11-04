@@ -9,7 +9,7 @@ struct symtable *cur_symtable = &global_symtable;
 
 struct generic_node *new_arr_node(int size) {
 	struct arr_node *node = (struct arr_node *) new_node(N_ARR);
-	node->base = (struct generic_node *)node;
+	node->base = 0;//(struct generic_node *) node;
 	node->size = size;
 	
 	//yyprint("array of %d",size); //debug
@@ -19,7 +19,7 @@ struct generic_node *new_arr_node(int size) {
 
 struct generic_node *new_ptr_node() {
 	struct ptr_node *node = (struct ptr_node *) new_node(N_PTR);
-	node->to = (struct generic_node *) node;
+	node->to = 0;//(struct generic_node *) node;
 	
 	//yyprint("pointer"); //debug
 	

@@ -227,8 +227,8 @@ type_qual
 declarator
 	:pointer direct_declarator {
 		$$.top = $1.top;
-		((struct ptr_node *)$2.top)->to = $$.top;
-		$$.deepest = $2.deepest;		
+		((struct ptr_node *)$2.top)->to = $$.deepest;
+		$$.deepest = $2.deepest;
 	}
 	|direct_declarator { $$ = $1; }
 	;
@@ -245,12 +245,12 @@ direct_declarator
 		}
 		
 		$$.top = new_arr_node($3.ival);
-		((struct ptr_node *)$1.top)->to = $$.top;
+		((struct arr_node *)$1.top)->base = $$.top;
 		$$.deepest = $1.deepest;
 	}
 	|direct_declarator '[' ']' {
 		$$.top = new_arr_node(0);
-		((struct ptr_node *)$1.top)->to = $$.top;
+		((struct arr_node *)$1.top)->base = $$.top;
 		$$.deepest = $1.deepest;
 	}
 	
