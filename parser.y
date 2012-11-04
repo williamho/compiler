@@ -11,6 +11,7 @@
 extern int yylex();
 extern int yyparse(void);
 extern char *filename;
+extern struct symtable *cur_symtable;
 
 int cur_scope;
 %}
@@ -29,17 +30,23 @@ int cur_scope;
 	
 	struct decl_spec {
 		char type_flags[TS_COUNT];
+		char type_quals[TQ_COUNT];
 		char storage_flags[SC_COUNT];
 	} flags;
 	
-	struct generic_node *lval;
+	struct declarator {
+		struct generic_node *top, *deepest;
+	} declarator;
 }
 
 %token <cval> CHARLIT
 %token <sval> STRING IDENT TYPENAME
-%token <num> NUMBER
+%token <num> NUMBER 
+
 %type <flags> decl_specs
-%type <spec> type_spec storage_class_spec 
+%type <spec> type_spec storage_class_spec type_qual
+%type <num> const_expr
+%type <declarator> direct_declarator declarator pointer init_declarator init_declarator_list 
 
 %token SIZEOF INLINE
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
@@ -85,10 +92,11 @@ function_definition
 decl
 	:decl_specs ';' {} // Declaring structs without initializing
 	|decl_specs init_declarator_list ';' {
-		check_type_specs($1.type_flags);
-		check_storage_classes($1.storage_flags);
-		// do stuff
-		print_decl_info($1.type_flags, $1.storage_flags);
+		int type = check_type_specs($1.type_flags);
+		int storage = check_storage_classes($1.storage_flags);
+		if (type >= 0 && storage >= 0 /* check type qualifiers too */) {
+			//print_decl_info($1.type_flags, $1.storage_flags, $1.type_quals);
+		}
 	}
 	;
 
@@ -109,21 +117,25 @@ decl_specs
 		$$ = $2; 
 		$$.type_flags[$1]++; 
 	}
-	|type_qual {}
-	|type_qual decl_specs {}
+	|type_qual {
+		memset($$.type_quals,0,TQ_COUNT); 
+		$$.type_quals[$1]++;
+	}
+	|type_qual decl_specs {
+		$$ = $2;
+		$$.type_quals[$1]++;
+	}
 	|INLINE {}
 	|INLINE decl_specs {}
 	;
 
 init_declarator_list
-	:init_declarator {
-		
-	}
-	|init_declarator_list ',' init_declarator
+	:init_declarator
+	|init_declarator_list ',' init_declarator { $$ = $3; }
 	;
 
 init_declarator
-	:declarator
+	:declarator { print_node_info_r($$.deepest); }
 	|declarator '=' initializer // Not implemented
 	;
 
@@ -207,31 +219,56 @@ enumerator
 	;
 
 type_qual
-	:CONST {}
-	|RESTRICT {}
-	|VOLATILE {}
+	:CONST { $$ = TQ_CONST; }
+	|RESTRICT { $$ = TQ_RESTRICT; }
+	|VOLATILE { $$ = TQ_VOLATILE; }
 	;
 
 declarator
-	:pointer direct_declarator
-	|direct_declarator
+	:pointer direct_declarator {
+		$$.top = $1.top;
+		((struct ptr_node *)$2.top)->to = $$.top;
+		$$.deepest = $2.deepest;		
+	}
+	|direct_declarator { $$ = $1; }
 	;
-
+	
 direct_declarator
-	:IDENT
-	|'(' declarator ')'
-	|direct_declarator '[' const_expr ']'
-	|direct_declarator '[' ']'
+	:IDENT {
+		$$.top = $$.deepest = (struct generic_node *) new_sym($1,0,0); // Set the scalar type later
+	}
+	|'(' declarator ')' { $$=$2; }
+	|direct_declarator '[' const_expr ']' {
+		if ($3.ntype >= N_FLOAT) {
+			yyerror("invalid array size");
+			$3.ival = (unsigned long long) $3.rval;
+		}
+		
+		$$.top = new_arr_node($3.ival);
+		((struct ptr_node *)$1.top)->to = $$.top;
+		$$.deepest = $1.deepest;
+	}
+	|direct_declarator '[' ']' {
+		$$.top = new_arr_node(0);
+		((struct ptr_node *)$1.top)->to = $$.top;
+		$$.deepest = $1.deepest;
+	}
+	
+	// functions
 	|direct_declarator '(' param_type_list ')'
-	|direct_declarator '(' IDENT_list ')'
+	|direct_declarator '(' ident_list ')'
 	|direct_declarator '(' ')'
 	;
 
-pointer
-	:'*'
-	|'*' type_qual_list
-	|'*' pointer
-	|'*' type_qual_list pointer
+pointer 
+	:'*' { $$.top = $$.deepest = new_ptr_node(); }
+	|'*' type_qual_list {} // ??
+	|'*' pointer {
+		$$.top = new_ptr_node();
+		((struct ptr_node *)$2.top)->to = $$.top;
+		$$.deepest = $2.deepest;
+	}
+	|'*' type_qual_list pointer {} //
 	;
 
 type_qual_list
@@ -256,9 +293,9 @@ param_decl
 	|decl_specs
 	;
 
-IDENT_list
+ident_list
 	:IDENT
-	|IDENT_list ',' IDENT
+	|ident_list ',' IDENT
 	;
 
 type_name
@@ -425,7 +462,7 @@ expr
 
 const_expr
 	//:cond_expr
-	:NUMBER
+	:NUMBER 
 	;
 
 /* +============+

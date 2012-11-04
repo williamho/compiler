@@ -6,9 +6,10 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include "y.tab.h"
 #include "symtable.h"
+#include "declarations.h"
 #include "file_info.h"
+#include "y.tab.h"
 YYSTYPE yylval;
 
 void yyerror(char *s, ...); 
@@ -87,7 +88,7 @@ _Complex   { return _COMPLEX; }
 _Imaginary { return _IMAGINARY; }
 
 {ALPHA}[a-zA-Z0-9]*  { 
-	struct generic_node *node;
+	struct symbol *node;
 	yylval.sval = strdup(yytext); 
 	
 	// check if typedef

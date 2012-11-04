@@ -7,57 +7,83 @@
 struct symtable global_symtable = {S_FILE};
 struct symtable *cur_symtable = &global_symtable;
 
+struct generic_node *new_arr_node(int size) {
+	struct arr_node *node = (struct arr_node *) new_node(N_ARR);
+	node->base = (struct generic_node *)node;
+	node->size = size;
+	
+	//yyprint("array of %d",size); //debug
+	
+	return (struct generic_node *) node;
+}
+
+struct generic_node *new_ptr_node() {
+	struct ptr_node *node = (struct ptr_node *) new_node(N_PTR);
+	node->to = (struct generic_node *) node;
+	
+	//yyprint("pointer"); //debug
+	
+	return (struct generic_node *) node;
+}
+
+struct generic_node *new_node(int ntype) {
+	struct generic_node *node;
+
+	switch(ntype) {
+	case N_TYPEDEF:
+		node = malloc(sizeof(struct typedef_node));
+		break;
+	case N_PTR: 
+		node = malloc(sizeof(struct ptr_node));
+		break;
+	case N_ARR:
+		node = malloc(sizeof(struct arr_node));
+		break;
+	case N_FUNC:
+		node = calloc(1,sizeof(struct func_node));
+		break;
+	case N_STRUCT:
+	case N_UNION:
+		node = calloc(1,sizeof(struct struct_node));
+		break;
+	case N_ENUM:
+		// Not implemented
+		break;
+	default:
+		node = malloc(sizeof(struct generic_node));
+		break;
+	}
+	node->nodetype = ntype;
+}
+
 /** Install new symbol in specified symbol table */
-struct generic_node *new_sym(char *sname, int stype, struct symtable *table) {
+struct symbol *new_sym(char *sname, struct generic_node *type, struct symtable *table) {
 	unsigned long hashval = hash(sname);
-	struct generic_node *cur_sym, **new_sym;
-	struct symtable *tmp_table;
+	struct symbol *cur_sym, **new_sym;
+	
+	if (!table)
+		table = cur_symtable;
 	
 	if (cur_sym = table->s[hashval]) { // collision
 		// Compare names of existing symbols with that hash value
 		while (cur_sym && strcmp(sname, cur_sym->id))
 			cur_sym = cur_sym->chain;
 				
-		if (cur_sym)
-			return 0; // symbol exists, return null pointer
+		if (cur_sym) {
+			yyerror("redefinition of '%s' previously declared at %s %d", sname, cur_sym->file, cur_sym->line);
+			return cur_sym; 
+		}
 		
 		cur_sym = table->s[hashval];
 	}
 	
 	new_sym = table->s + hashval;
-	switch(stype) {
-	case N_CHAR:
-	case N_SHORT: 
-	case N_INT:
-	case N_LONG: 
-	case N_LONGLONG: 
-	case N_FLOAT: 
-	case N_DOUBLE: 
-	case N_LONGDOUBLE:
-		*new_sym = malloc(sizeof(struct num_node));
-		break;
-	case N_TYPEDEF:
-		*new_sym = malloc(sizeof(struct typedef_node));
-		break;
-	case N_PTR: 
-		*new_sym = malloc(sizeof(struct ptr_node));
-		break;
-	case N_ARR:
-		*new_sym = malloc(sizeof(struct arr_node));
-		break;
-	case N_FUNC:
-		*new_sym = calloc(1,sizeof(struct func_node));
-		(*new_sym)->scope_type = S_PROTO;
-		break;
-	case N_STRUCT:
-	case N_UNION:
-		*new_sym = calloc(1,sizeof(struct struct_node));
-		(*new_sym)->scope_type = S_PROTO;
-		break;
-	}
+	*new_sym = malloc(sizeof(struct symbol));
+	/* ??? */
 	
 	// Add symbol to symtable
-	(*new_sym)->nodetype = stype;
+	(*new_sym)->nodetype = N_IDENT;
+	(*new_sym)->type = type;
 	(*new_sym)->id = sname;
 	(*new_sym)->chain = cur_sym;
 	(*new_sym)->file = strdup(filename);
@@ -101,9 +127,9 @@ unsigned long hash(unsigned char *str) {
 }
 
 /** Get pointer to symbol with identifier sname */
-struct generic_node *get_sym(char *sname) {
+struct symbol *get_sym(char *sname) {
 	unsigned long hashval = hash(sname);
-	struct generic_node *sym_ptr;
+	struct symbol *sym_ptr;
 	struct symtable *table = cur_symtable;
 	
 	while (table) {

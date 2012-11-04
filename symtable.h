@@ -10,31 +10,39 @@ enum scope_types {
 };
 
 enum node_types {
-	/* Number types*/
-	N_CHAR, N_SHORT, N_INT, N_LONG, N_LONGLONG, N_FLOAT, N_DOUBLE, N_LONGDOUBLE,
+	N_VOID, N_CHAR, N_SHORT, N_INT, N_LONG, N_LONGLONG, 
+	N_UCHAR, N_USHORT, N_UINT, N_ULONG, N_ULONGLONG,
+	N_FLOAT, N_DOUBLE, N_LONGDOUBLE,
+	N_BOOL, N_CFLOAT, N_CDOUBLE, N_CLONGDOUBLE,
+	N_STRUCT, N_UNION, N_ENUM, N_TYPEDEF, 
 	
-	/* Misc types */
-	N_PTR, N_ARR, N_STRUCT, N_UNION, N_FUNC, N_TYPEDEF
+	N_PTR, N_ARR, N_FUNC, N_TYPENAME, N_IDENT
 };
 
 struct symtable {
 	int scope_type;
-	struct generic_node *s[TABLE_LENGTH];
+	struct symbol *s[TABLE_LENGTH];
 	struct symtable *prev; // symbol table one level up
 };
 
 #define COMMON_NODE_ATTRIBUTES \
 	char nodetype; \
-	char *id;     \
-	char *file;   \
-	int line;     \
-	char scope_type;    \
-	struct generic_node *chain
+	char type_qual
 
 struct generic_node {
 	COMMON_NODE_ATTRIBUTES;
 };
 	
+struct symbol {
+	COMMON_NODE_ATTRIBUTES;
+	struct generic_node *type;
+	char *id;
+	char *file;
+	int line; 
+	char scope_type;
+	struct symbol *chain;
+};
+
 struct typedef_node {
 	COMMON_NODE_ATTRIBUTES;
 	struct generic_node *type;
@@ -51,13 +59,6 @@ struct arr_node {
 	int size;
 };
 
-struct num_node {
-	COMMON_NODE_ATTRIBUTES;
-	int is_unsigned; 
-	unsigned long long ival; 
-	long double rval;
-};
-
 struct struct_node {
 	COMMON_NODE_ATTRIBUTES;
 	struct symtable members; // mini-symtable to keep track of struct members
@@ -72,8 +73,11 @@ struct func_node {
 struct symtable *new_symtable(int stype);
 int remove_symtable();
 unsigned long hash(unsigned char *str);
-struct generic_node *new_sym(char *sname, int stype, struct symtable *table);
-struct generic_node *get_sym(char *sname);
+struct generic_node *new_node(int ntype);
+struct symbol *new_sym(char *sname, struct generic_node *type, struct symtable *table);
+struct symbol *get_sym(char *sname);
+struct generic_node *new_arr_node(int size);
+struct generic_node *new_ptr_node();
 
 /*
 long long get_sym_p(struct symbol *sym);

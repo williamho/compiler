@@ -11,11 +11,18 @@ enum type_specs {
 };
 
 enum storage_classes {
-	SC_TYPEDEF, SC_EXTERN, SC_STATIC, SC_AUTO, SC_REGISTER, SC_COUNT
+	SC_AUTO, SC_TYPEDEF, SC_EXTERN, SC_STATIC, SC_REGISTER, SC_COUNT
+};
+
+enum type_quals {
+	TQ_CONST, TQ_RESTRICT, TQ_VOLATILE, TQ_COUNT
 };
  
+ 
+struct generic_node;
+void print_node_info(struct generic_node *node);
 int check_storage_classes(char *sc);
 int check_type_specs(char *ts);
 void reset_storage_flags(char *sc);
-void print_decl_info(char *ts, char *sc);
+void print_decl_info(char *ts, char *sc, char *tq);
 #endif
