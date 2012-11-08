@@ -34,9 +34,17 @@ int cur_scope;
 		char storage_flags[SC_COUNT];
 	} flags;
 	
+	struct declarator *declarator;
+	
+	/*
 	struct declarator {
 		struct generic_node *top, *deepest;
-	} declarator;
+		struct declarator *next; // Next declarator in list
+	} declarator;*/
+	
+	struct declarator_list {
+		struct declarator *leftmost, *rightmost;
+	} decl_list;
 }
 
 %token <cval> CHARLIT
@@ -46,7 +54,8 @@ int cur_scope;
 %type <flags> decl_specs
 %type <spec> type_spec storage_class_spec type_qual
 %type <num> const_expr
-%type <declarator> direct_declarator declarator pointer init_declarator init_declarator_list 
+%type <declarator> direct_declarator declarator pointer init_declarator 
+%type <decl_list> init_declarator_list 
 
 %token SIZEOF INLINE
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
@@ -94,8 +103,20 @@ decl
 	|decl_specs init_declarator_list ';' {
 		int type = check_type_specs($1.type_flags);
 		int storage = check_storage_classes($1.storage_flags);
-		if (type >= 0 && storage >= 0 /* check type qualifiers too */) {
+		
+		struct generic_node *scalar_node, *node;
+		struct declarator *dec, *dec_old;
+		
+		if (type >= 0 && storage >= 0 /* FIXME check type qualifiers too */) {
+			scalar_node = new_node(type); 
+			
+			//FIXME set storage flags and type qualifiers too
 			//print_decl_info($1.type_flags, $1.storage_flags, $1.type_quals);
+			for (dec = $2.leftmost; dec != 0; dec = dec->next, free(dec_old)) {
+				((struct ptr_node *)dec->top)->to = scalar_node;
+				print_node_info_r(dec->deepest);
+				dec_old = dec; // Free this declarator
+			}
 		}
 	}
 	;
@@ -130,12 +151,47 @@ decl_specs
 	;
 
 init_declarator_list
-	:init_declarator
-	|init_declarator_list ',' init_declarator { $$ = $3; }
+	:init_declarator { 
+	
+		$$.leftmost = $$.rightmost = $1;
+		$1->next = 0;
+		
+		//printf("a %s /",((struct symbol *)$1.deepest)->id);
+		//print_node_info_r($1->deepest); 
+	}
+	|init_declarator_list ',' init_declarator {
+		$$.leftmost = $1.leftmost;
+		$$.rightmost = $3;
+		($1.rightmost)->next = $3;
+		($$.rightmost)->next = 0;
+		
+	/*
+	struct declarator *decl = $$.leftmost;
+	while (decl != 0) {
+		printf("%s, ",((struct symbol *)(decl->deepest))->id);
+		decl = decl->next;
+	}
+	putchar('\n');
+	*/
+	
+	//printf("%s, ",((struct symbol *)$3.deepest)->id);
+		/*$$.leftmost = $1.leftmost;
+		$$.rightmost = $1.rightmost;
+		$3.next = 
+	
+		$$.first = $1.first;
+		$$.last = $1.last;
+		($1.first)->next = &($3);
+		($$.last)->next = 0;*/
+		//print_node_info_r($3.deepest); 
+	}
 	;
 
 init_declarator
-	:declarator { print_node_info_r($$.deepest); }
+	:declarator { 
+		$$ = $1;
+		//print_node_info_r($$->deepest); 
+	}
 	|declarator '=' initializer // Not implemented
 	;
 
@@ -226,16 +282,24 @@ type_qual
 
 declarator
 	:pointer direct_declarator {
+		$$ = new_declarator($1->top);
+		((struct ptr_node *)$2->top)->to = $1->deepest;
+		$$->deepest = $2->deepest;
+
+		free($1);
+		free($2);
+	
+	/*
 		$$.top = $1.top;
 		((struct ptr_node *)$2.top)->to = $$.deepest;
-		$$.deepest = $2.deepest;
+		$$.deepest = $2.deepest;*/
 	}
 	|direct_declarator { $$ = $1; }
 	;
 	
 direct_declarator
 	:IDENT {
-		$$.top = $$.deepest = (struct generic_node *) new_sym($1,0,0); // Set the scalar type later
+		$$ = new_declarator((struct generic_node *)new_sym($1,0));
 	}
 	|'(' declarator ')' { $$=$2; }
 	|direct_declarator '[' const_expr ']' {
@@ -244,14 +308,25 @@ direct_declarator
 			$3.ival = (unsigned long long) $3.rval;
 		}
 		
+		$$ = $1;
+		((struct arr_node *)$$->top)->base = new_arr_node($3.ival);
+		$$->top = ((struct arr_node *)$$->top)->base;
+		
+		/*
 		$$.top = new_arr_node($3.ival);
 		((struct arr_node *)$1.top)->base = $$.top;
 		$$.deepest = $1.deepest;
+		*/
 	}
 	|direct_declarator '[' ']' {
+		$$ = $1;
+		((struct arr_node *)$$->top)->base = new_arr_node(0);
+		$$->top = ((struct arr_node *)$$->top)->base;
+	
+	/*
 		$$.top = new_arr_node(0);
 		((struct arr_node *)$1.top)->base = $$.top;
-		$$.deepest = $1.deepest;
+		$$.deepest = $1.deepest;*/
 	}
 	
 	// functions
@@ -261,12 +336,17 @@ direct_declarator
 	;
 
 pointer 
-	:'*' { $$.top = $$.deepest = new_ptr_node(); }
+	:'*' { $$ = new_declarator((struct generic_node *)new_ptr_node()); }
 	|'*' type_qual_list {} // ??
 	|'*' pointer {
+		$$ = $2;
+		((struct ptr_node *) $$->top)->to = new_ptr_node();
+		$$->top = ((struct ptr_node *)$$->top)->to;
+	
+	/*
 		$$.top = new_ptr_node();
 		((struct ptr_node *)$2.top)->to = $$.top;
-		$$.deepest = $2.deepest;
+		$$.deepest = $2.deepest;*/
 	}
 	|'*' type_qual_list pointer {} //
 	;

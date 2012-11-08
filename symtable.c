@@ -57,7 +57,7 @@ struct generic_node *new_node(int ntype) {
 }
 
 /** Install new symbol in specified symbol table */
-struct symbol *new_sym(char *sname, struct generic_node *type, struct symtable *table) {
+struct symbol *new_sym(char *sname, struct symtable *table) {
 	unsigned long hashval = hash(sname);
 	struct symbol *cur_sym, **new_sym;
 	
@@ -83,7 +83,7 @@ struct symbol *new_sym(char *sname, struct generic_node *type, struct symtable *
 	
 	// Add symbol to symtable
 	(*new_sym)->nodetype = N_IDENT;
-	(*new_sym)->type = type;
+	//(*new_sym)->type = 0;
 	(*new_sym)->id = sname;
 	(*new_sym)->chain = cur_sym;
 	(*new_sym)->file = strdup(filename);

@@ -17,9 +17,14 @@ enum storage_classes {
 enum type_quals {
 	TQ_CONST, TQ_RESTRICT, TQ_VOLATILE, TQ_COUNT
 };
- 
+
+struct declarator {
+	struct generic_node *top, *deepest;
+	struct declarator *next; // Next declarator in list
+};
  
 struct generic_node;
+struct declarator *new_declarator(struct generic_node *n);
 void print_node_info(struct generic_node *node);
 int check_storage_classes(char *sc);
 int check_type_specs(char *ts);

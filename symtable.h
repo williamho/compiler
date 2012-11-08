@@ -74,7 +74,7 @@ struct symtable *new_symtable(int stype);
 int remove_symtable();
 unsigned long hash(unsigned char *str);
 struct generic_node *new_node(int ntype);
-struct symbol *new_sym(char *sname, struct generic_node *type, struct symtable *table);
+struct symbol *new_sym(char *sname, struct symtable *table);
 struct symbol *get_sym(char *sname);
 struct generic_node *new_arr_node(int size);
 struct generic_node *new_ptr_node();

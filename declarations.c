@@ -3,43 +3,62 @@
 #include "declarations.h"
 #include "symtable.h"
 
+struct declarator *new_declarator(struct generic_node *n) {
+	struct declarator *d = malloc(sizeof(struct declarator));
+	d->top = d->deepest = n;
+}
+
 void print_node_info_r(struct generic_node *node) {
 	struct ptr_node *n = (struct ptr_node *) node;
-	int i, depth = 0;
 	
 	while (n->nodetype == N_ARR || n->nodetype == N_PTR || n->nodetype == N_IDENT) {
-		for (i=0; i<depth; i++)
-			printf("  ");
-		
-		print_node_info((struct generic_node *)n);
 		if (n->to == (struct generic_node *)n || n->to == 0)
 			break;
+	
+		print_node_info((struct generic_node *)n);
+		printf("-> ");
+		
 		n = (struct ptr_node *)(n->to);
-		
-		depth++;
 	}	
-
-	for (i=0; i<depth; i++)
-		printf("  ");
 		
-	//print_node_info((struct generic_node *)n);
+	print_node_info((struct generic_node *)n);
+	putchar('\n');
 }
 
 void print_node_info(struct generic_node *node) {
 	switch(node->nodetype) {
-	case N_ARR:
-		printf("array of %d\n",((struct arr_node *)node)->size);
-		break;
-	case N_PTR:
-		printf("pointer to\n");
-		break;
-	case N_IDENT:
-		printf("symbol '%s'\n",((struct symbol *)node)->id);
-		break;
+	case N_ARR:	printf("array of %d",((struct arr_node *)node)->size);	break;
+	case N_PTR: printf("pointer to");	break;
+	case N_IDENT: printf("symbol '%s'",((struct symbol *)node)->id); break;
+	case N_VOID: printf("void"); break;
+	case N_CHAR: printf("char"); break;
+	case N_UCHAR: printf("unsigned char"); break;
+	case N_SHORT: printf("short"); break;
+	case N_USHORT: printf("unsigned short"); break;
+	case N_INT: printf("int"); break;
+	case N_UINT: printf("unsigned int"); break; 
+	case N_LONG: printf("long"); break;
+	case N_ULONG: printf("unsigned long"); break;
+	case N_LONGLONG: printf("long long"); break;
+	case N_ULONGLONG: printf("unsigned long long"); 
+	case N_FLOAT: printf("float"); break;
+	case N_CFLOAT: printf("complex float"); break;
+	case N_DOUBLE: printf("double"); break;
+	case N_CDOUBLE: printf("complex double"); break;
+	case N_LONGDOUBLE: printf("long double"); break;
+	case N_CLONGDOUBLE: printf("complex long double"); break;
+	case N_BOOL: printf("bool"); break;
+	case N_STRUCT: printf("struct"); break;
+	case N_UNION: printf("union"); break;
+	case N_ENUM: printf("enum"); break;
+	case N_TYPEDEF: printf("typedef"); break;
+	case N_FUNC: printf("function"); break;
+	//case N_TYPENAME: break;
 	default:
-		printf("type %d\n",node->nodetype);
+		printf("type %d",node->nodetype);
 		break;
 	}
+	putchar(' ');
 }
 
 void print_decl_info(char *ts, char *sc, char *tq) {
@@ -171,7 +190,7 @@ int check_type_specs(char *ts) {
 		return N_CDOUBLE;
 		
 	if (total == 3 && total == ts[TS_LONG]+ts[TS_DOUBLE]+ts[TS_COMPLEX] && ts[TS_LONG] == 1)
-		return N_LONGDOUBLE;
+		return N_CLONGDOUBLE;
 	
 	if (total == ts[TS_STRUCT])
 		return N_STRUCT;
