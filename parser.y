@@ -91,23 +91,22 @@ decl
 		/*int type = check_type_specs($1.type_flags);
 		int storage = check_storage_classes($1.storage_flags);
 		*/
-		
-		check_decl_specs($1);
+		char *specs = check_decl_specs($1);
 		
 		struct generic_node *scalar_node, *node;
 		struct declarator *dec, *dec_old;
-		/*
-		if (type >= 0 && storage >= 0) {
-			scalar_node = new_node(type); 
-			printf("%d\n",storage);
-			//((struct symbol *)dec->deepest)->storage = storage;
+		
+		if (specs[TS] >= 0 && specs[SC]>= 0) {
+			scalar_node = new_node(specs[TS]); 
 			
 			for (dec = $2.leftmost; dec != 0; dec = dec->next, free(dec_old)) {
 				((struct ptr_node *)dec->top)->to = scalar_node;
+				((struct symbol *)dec->deepest)->storage = specs[SC];
 				print_node_info_r(dec->deepest);
 				dec_old = dec; // Free this declarator
 			}
-		}*/
+		}
+		free(specs);
 	}
 	;
 
@@ -150,8 +149,8 @@ decl_specs
 decl_spec
 	:storage_class_spec
 	|type_spec
-	|type_qual
-	|INLINE {} // Not implemented
+	|type_qual { yywarn("type qualifiers not implemented"); }
+	|INLINE { yywarn("inline not implemented"); } // Not implemented
 	;
 	
 init_declarator_list
@@ -196,23 +195,6 @@ type_spec
 	|enum_spec { $$ = new_spec(TS,TS_ENUM); }
 	|TYPEDEF_NAME { $$ = new_spec(TS,TS_TYPENAME); }
 	;
-/*
-	:VOID { $$ = TS_VOID; }
-	|CHAR { $$ = TS_CHAR; }
-	|SHORT { $$ = TS_SHORT; }
-	|INT { $$ = TS_INT; }
-	|LONG { $$ = TS_LONG; }
-	|FLOAT { $$ = TS_FLOAT; }
-	|DOUBLE { $$ = TS_DOUBLE; }
-	|SIGNED { $$ = TS_SIGNED; }
-	|UNSIGNED { $$ = TS_UNSIGNED; }
-	|_BOOL { $$ = TS_BOOL; }
-	|_COMPLEX { $$ = TS_COMPLEX; }
-	|struct_or_union_spec { $$ = TS_STRUCT; }
-	|enum_spec { $$ = TS_ENUM; }
-	|TYPEDEF_NAME { $$ = TS_TYPENAME; }
-	;
-	*/
 
 struct_or_union_spec
 	:struct_or_union IDENT '{' struct_decl_list '}'

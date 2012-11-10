@@ -79,11 +79,12 @@ void print_node_info(struct generic_node *node) {
 	putchar(' ');
 }
 
-int check_decl_specs(struct decl_spec *spec) {
+char *check_decl_specs(struct decl_spec *spec) {
 	char type_flags[TS_COUNT] = {0}; 
 	char storage_flags[SC_COUNT] = {0};
 	char qual_flags[TQ_COUNT] = {0};
 	char type, storage, qualifiers;
+	char *ret;
 	struct decl_spec *old_spec;
 	
 	while(spec) {
@@ -98,40 +99,12 @@ int check_decl_specs(struct decl_spec *spec) {
 		free(old_spec);
 	}
 	
-	type = check_type_specs(type_flags);
-	storage = check_storage_classes(storage_flags);
+	ret = malloc(3); // 0: type, 1: storage, 2: qualifier
+	ret[TS]= check_type_specs(type_flags);
+	ret[SC] = check_storage_classes(storage_flags);
+	ret[TQ] = 0; // Ignore type qualifiers for now
 	
-	printf("type: %d\nstorage: %d\n",type,storage);
-	// Ignore type qualifiers
-}
-
-void print_decl_info(char *ts, char *sc, char *tq) {
-	if (tq[TQ_CONST]) printf("const ");
-	if (tq[TQ_RESTRICT]) printf("restrict ");
-	if (tq[TQ_VOLATILE]) printf("volatile ");
-
-	if (sc[SC_TYPEDEF]) printf("typedef ");
-	if (sc[SC_EXTERN]) printf("extern ");
-	if (sc[SC_STATIC]) printf("static ");
-	if (sc[SC_AUTO]) printf("auto ");
-	if (sc[SC_REGISTER]) printf("register ");
-
-	if (ts[TS_SIGNED]) printf("signed ");
-	if (ts[TS_UNSIGNED]) printf("unsigned ");
-	if (ts[TS_VOID]) printf("void ");
-	if (ts[TS_CHAR]) printf("char ");
-	if (ts[TS_SHORT]) printf("short ");
-	if (ts[TS_LONG] == 1) printf("long ");
-	if (ts[TS_LONG] == 2) printf("long long ");
-	if (ts[TS_INT]) printf("int ");
-	if (ts[TS_FLOAT]) printf("float ");
-	if (ts[TS_DOUBLE]) printf("double ");
-	if (ts[TS_BOOL]) printf("bool ");
-	if (ts[TS_COMPLEX]) printf("complex ");
-	if (ts[TS_STRUCT]) printf("struct ");
-	if (ts[TS_ENUM]) printf("enum ");
-	if (ts[TS_TYPENAME]) printf("typename ");
-	putchar('\n');
+	return ret;
 }
 
 int check_storage_classes(char *sc) {

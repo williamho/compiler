@@ -39,8 +39,8 @@ struct generic_node;
 struct decl_spec *new_spec(char type, char val);
 struct declarator *new_declarator(struct generic_node *n);
 void print_node_info(struct generic_node *node);
+char *check_decl_specs(struct decl_spec *spec);
 int check_storage_classes(char *sc);
 int check_type_specs(char *ts);
 void reset_storage_flags(char *sc);
-void print_decl_info(char *ts, char *sc, char *tq);
 #endif
