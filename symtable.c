@@ -9,19 +9,15 @@ struct symtable *cur_symtable = &global_symtable;
 
 struct generic_node *new_arr_node(int size) {
 	struct arr_node *node = (struct arr_node *) new_node(N_ARR);
-	node->base = 0;//(struct generic_node *) node;
+	node->base = 0;
 	node->size = size;
-	
-	//yyprint("array of %d",size); //debug
 	
 	return (struct generic_node *) node;
 }
 
 struct generic_node *new_ptr_node() {
 	struct ptr_node *node = (struct ptr_node *) new_node(N_PTR);
-	node->to = 0;//(struct generic_node *) node;
-	
-	//yyprint("pointer"); //debug
+	node->to = 0;
 	
 	return (struct generic_node *) node;
 }
@@ -46,8 +42,8 @@ struct generic_node *new_node(int ntype) {
 	case N_UNION:
 		node = calloc(1,sizeof(struct struct_node));
 		break;
-	case N_ENUM:
-		// Not implemented
+	case N_ENUM: // Not implemented
+		node = malloc(sizeof(struct generic_node)); 
 		break;
 	default:
 		node = malloc(sizeof(struct generic_node));
@@ -83,7 +79,7 @@ struct symbol *new_sym(char *sname, struct symtable *table) {
 	
 	// Add symbol to symtable
 	(*new_sym)->nodetype = N_IDENT;
-	//(*new_sym)->type = 0;
+	(*new_sym)->type = 0;
 	(*new_sym)->id = sname;
 	(*new_sym)->chain = cur_sym;
 	(*new_sym)->file = strdup(filename);
@@ -99,6 +95,8 @@ struct symtable *new_symtable(int stype) {
 	cur_symtable = calloc(1,sizeof(struct symtable));
 	cur_symtable->prev = old;
 	cur_symtable->scope_type = stype;
+	cur_symtable->file = strdup(filename);
+	cur_symtable->line = line_num;
 	
 	return cur_symtable;
 }

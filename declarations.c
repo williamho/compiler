@@ -1,11 +1,21 @@
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "declarations.h"
 #include "symtable.h"
 
 struct declarator *new_declarator(struct generic_node *n) {
 	struct declarator *d = malloc(sizeof(struct declarator));
 	d->top = d->deepest = n;
+	return d;
+}
+
+struct decl_spec *new_spec(char type, char val) {
+	struct decl_spec *spec = malloc(sizeof (struct decl_spec));
+	spec->type = type;
+	spec->val = val;
+	spec->next = 0;
+	return spec;
 }
 
 void print_node_info_r(struct generic_node *node) {
@@ -27,9 +37,17 @@ void print_node_info_r(struct generic_node *node) {
 
 void print_node_info(struct generic_node *node) {
 	switch(node->nodetype) {
+	case N_IDENT: 
+		printf("symbol '%s'",((struct symbol *)node)->id); 
+		switch(((struct symbol *)node)->storage) {
+		case SC_TYPEDEF: printf(" (typedef)"); break;
+		case SC_EXTERN: printf(" (extern)"); break; 
+		case SC_STATIC: printf(" (static)"); break;
+		case SC_REGISTER: printf(" (register)"); break;
+		}
+		break;
 	case N_ARR:	printf("array of %d",((struct arr_node *)node)->size);	break;
 	case N_PTR: printf("pointer to");	break;
-	case N_IDENT: printf("symbol '%s'",((struct symbol *)node)->id); break;
 	case N_VOID: printf("void"); break;
 	case N_CHAR: printf("char"); break;
 	case N_UCHAR: printf("unsigned char"); break;
@@ -59,6 +77,32 @@ void print_node_info(struct generic_node *node) {
 		break;
 	}
 	putchar(' ');
+}
+
+int check_decl_specs(struct decl_spec *spec) {
+	char type_flags[TS_COUNT] = {0}; 
+	char storage_flags[SC_COUNT] = {0};
+	char qual_flags[TQ_COUNT] = {0};
+	char type, storage, qualifiers;
+	struct decl_spec *old_spec;
+	
+	while(spec) {
+		switch(spec->type) {
+		case TS: type_flags[spec->val]++; break;
+		case SC: storage_flags[spec->val]++; break;
+		case TQ: qual_flags[spec->val]++; break;
+		}
+		
+		old_spec = spec;
+		spec = spec->next;
+		free(old_spec);
+	}
+	
+	type = check_type_specs(type_flags);
+	storage = check_storage_classes(storage_flags);
+	
+	printf("type: %d\nstorage: %d\n",type,storage);
+	// Ignore type qualifiers
 }
 
 void print_decl_info(char *ts, char *sc, char *tq) {
@@ -100,7 +144,7 @@ int check_storage_classes(char *sc) {
 	}
 	if (total == 0) // No storage class specified
 		return SC_AUTO;
-	for (i=1; sc[i]; i++);
+	for (i=1; i<SC_COUNT && !sc[i]; i++);
 		
 	return i;
 }

@@ -2,6 +2,12 @@
 #ifndef DECLARATIONS_H
 #define DECLARATIONS_H
 
+enum spec_type { 
+	TS /* type specifier */, 
+	SC /* storage class */,
+	TQ /* type qualifier */
+};
+
 enum type_specs {
 	TS_VOID, TS_CHAR, TS_SHORT, TS_INT, TS_LONG,
 	TS_FLOAT, TS_DOUBLE, TS_BOOL, TS_COMPLEX, 
@@ -18,12 +24,19 @@ enum type_quals {
 	TQ_CONST, TQ_RESTRICT, TQ_VOLATILE, TQ_COUNT
 };
 
+struct decl_spec {
+	char type; // type spec or storage class
+	char val;
+	struct decl_spec *next; // next decl spec in the list
+};
+
 struct declarator {
 	struct generic_node *top, *deepest;
 	struct declarator *next; // Next declarator in list
 };
  
 struct generic_node;
+struct decl_spec *new_spec(char type, char val);
 struct declarator *new_declarator(struct generic_node *n);
 void print_node_info(struct generic_node *node);
 int check_storage_classes(char *sc);

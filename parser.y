@@ -19,7 +19,6 @@ int cur_scope;
 %union{
 	char cval;
 	char *sval;
-	char spec;
 	
 	struct num {
 		int ntype;  // int, long, long long, float, double, long double
@@ -28,19 +27,8 @@ int cur_scope;
 		long double rval;
 	} num;
 	
-	struct decl_spec {
-		char type_flags[TS_COUNT];
-		char type_quals[TQ_COUNT];
-		char storage_flags[SC_COUNT];
-	} flags;
-	
+	struct decl_spec *specs;
 	struct declarator *declarator;
-	
-	/*
-	struct declarator {
-		struct generic_node *top, *deepest;
-		struct declarator *next; // Next declarator in list
-	} declarator;*/
 	
 	struct declarator_list {
 		struct declarator *leftmost, *rightmost;
@@ -51,8 +39,7 @@ int cur_scope;
 %token <sval> STRING IDENT TYPENAME
 %token <num> NUMBER 
 
-%type <flags> decl_specs
-%type <spec> type_spec storage_class_spec type_qual
+%type <specs> decl_specs decl_spec type_spec storage_class_spec type_qual 
 %type <num> const_expr
 %type <declarator> direct_declarator declarator pointer init_declarator 
 %type <decl_list> init_declarator_list 
@@ -99,30 +86,40 @@ function_definition
    +==============+ */
 	
 decl
-	:decl_specs ';' {} // Declaring structs without initializing
+	:decl_specs ';' {} 
 	|decl_specs init_declarator_list ';' {
-		int type = check_type_specs($1.type_flags);
+		/*int type = check_type_specs($1.type_flags);
 		int storage = check_storage_classes($1.storage_flags);
+		*/
+		
+		check_decl_specs($1);
 		
 		struct generic_node *scalar_node, *node;
 		struct declarator *dec, *dec_old;
-		
-		if (type >= 0 && storage >= 0 /* FIXME check type qualifiers too */) {
+		/*
+		if (type >= 0 && storage >= 0) {
 			scalar_node = new_node(type); 
+			printf("%d\n",storage);
+			//((struct symbol *)dec->deepest)->storage = storage;
 			
-			//FIXME set storage flags and type qualifiers too
-			//print_decl_info($1.type_flags, $1.storage_flags, $1.type_quals);
 			for (dec = $2.leftmost; dec != 0; dec = dec->next, free(dec_old)) {
 				((struct ptr_node *)dec->top)->to = scalar_node;
 				print_node_info_r(dec->deepest);
 				dec_old = dec; // Free this declarator
 			}
-		}
+		}*/
 	}
 	;
 
 decl_specs
-	:storage_class_spec { 
+	:decl_spec
+	|decl_specs decl_spec {
+		$2->next = $1; // Add decl_spec to linked list of specs
+		$$ = $2;
+	}
+	;
+/*
+	:storage_class_spec { new_spec(SC,$1,);
 		memset($$.storage_flags,0,SC_COUNT); 
 		$$.storage_flags[$1]++; 
 	}
@@ -148,62 +145,58 @@ decl_specs
 	}
 	|INLINE {}
 	|INLINE decl_specs {}
-	;
+	;*/
 
+decl_spec
+	:storage_class_spec
+	|type_spec
+	|type_qual
+	|INLINE {} // Not implemented
+	;
+	
 init_declarator_list
 	:init_declarator { 
-	
 		$$.leftmost = $$.rightmost = $1;
 		$1->next = 0;
-		
-		//printf("a %s /",((struct symbol *)$1.deepest)->id);
-		//print_node_info_r($1->deepest); 
 	}
 	|init_declarator_list ',' init_declarator {
 		$$.leftmost = $1.leftmost;
 		$$.rightmost = $3;
 		($1.rightmost)->next = $3;
 		($$.rightmost)->next = 0;
-		
-	/*
-	struct declarator *decl = $$.leftmost;
-	while (decl != 0) {
-		printf("%s, ",((struct symbol *)(decl->deepest))->id);
-		decl = decl->next;
-	}
-	putchar('\n');
-	*/
-	
-	//printf("%s, ",((struct symbol *)$3.deepest)->id);
-		/*$$.leftmost = $1.leftmost;
-		$$.rightmost = $1.rightmost;
-		$3.next = 
-	
-		$$.first = $1.first;
-		$$.last = $1.last;
-		($1.first)->next = &($3);
-		($$.last)->next = 0;*/
-		//print_node_info_r($3.deepest); 
 	}
 	;
 
 init_declarator
-	:declarator { 
-		$$ = $1;
-		//print_node_info_r($$->deepest); 
-	}
+	:declarator
 	|declarator '=' initializer // Not implemented
 	;
 
 storage_class_spec
-	:TYPEDEF { $$ = SC_TYPEDEF; }
-	|EXTERN { $$ = SC_EXTERN; }
-	|STATIC { $$ = SC_STATIC; }
-	|AUTO { $$ = SC_AUTO; }
-	|REGISTER { $$ = SC_REGISTER; }
+	:TYPEDEF { $$ = new_spec(SC,SC_TYPEDEF); }
+	|EXTERN { $$ = new_spec(SC,SC_EXTERN); }
+	|STATIC { $$ = new_spec(SC,SC_STATIC); }
+	|AUTO { $$ = new_spec(SC,SC_AUTO); }
+	|REGISTER { $$ = new_spec(SC,SC_REGISTER); }
 	;
 	
-type_spec	// Set flags and check for illegal type_spec combinations after
+type_spec
+	:VOID { $$ = new_spec(TS,TS_VOID); }
+	|CHAR { $$ = new_spec(TS,TS_CHAR); }
+	|SHORT { $$ = new_spec(TS,TS_SHORT); }
+	|INT { $$ = new_spec(TS,TS_INT); }
+	|LONG { $$ = new_spec(TS,TS_LONG); }
+	|FLOAT { $$ = new_spec(TS,TS_FLOAT); }
+	|DOUBLE { $$ = new_spec(TS,TS_DOUBLE); }
+	|SIGNED { $$ = new_spec(TS,TS_SIGNED); }
+	|UNSIGNED { $$ = new_spec(TS,TS_UNSIGNED); }
+	|_BOOL { $$ = new_spec(TS,TS_BOOL); }
+	|_COMPLEX { $$ = new_spec(TS,TS_COMPLEX); }
+	|struct_or_union_spec { $$ = new_spec(TS,TS_STRUCT); }
+	|enum_spec { $$ = new_spec(TS,TS_ENUM); }
+	|TYPEDEF_NAME { $$ = new_spec(TS,TS_TYPENAME); }
+	;
+/*
 	:VOID { $$ = TS_VOID; }
 	|CHAR { $$ = TS_CHAR; }
 	|SHORT { $$ = TS_SHORT; }
@@ -219,6 +212,7 @@ type_spec	// Set flags and check for illegal type_spec combinations after
 	|enum_spec { $$ = TS_ENUM; }
 	|TYPEDEF_NAME { $$ = TS_TYPENAME; }
 	;
+	*/
 
 struct_or_union_spec
 	:struct_or_union IDENT '{' struct_decl_list '}'
@@ -275,9 +269,9 @@ enumerator
 	;
 
 type_qual
-	:CONST { $$ = TQ_CONST; }
-	|RESTRICT { $$ = TQ_RESTRICT; }
-	|VOLATILE { $$ = TQ_VOLATILE; }
+	:CONST { $$ = new_spec(TQ,TQ_CONST); }
+	|RESTRICT { $$ = new_spec(TQ,TQ_RESTRICT); }
+	|VOLATILE { $$ = new_spec(TQ,TQ_VOLATILE); }
 	;
 
 declarator
@@ -285,14 +279,8 @@ declarator
 		$$ = new_declarator($1->top);
 		((struct ptr_node *)$2->top)->to = $1->deepest;
 		$$->deepest = $2->deepest;
-
 		free($1);
 		free($2);
-	
-	/*
-		$$.top = $1.top;
-		((struct ptr_node *)$2.top)->to = $$.deepest;
-		$$.deepest = $2.deepest;*/
 	}
 	|direct_declarator { $$ = $1; }
 	;
@@ -311,22 +299,11 @@ direct_declarator
 		$$ = $1;
 		((struct arr_node *)$$->top)->base = new_arr_node($3.ival);
 		$$->top = ((struct arr_node *)$$->top)->base;
-		
-		/*
-		$$.top = new_arr_node($3.ival);
-		((struct arr_node *)$1.top)->base = $$.top;
-		$$.deepest = $1.deepest;
-		*/
 	}
 	|direct_declarator '[' ']' {
 		$$ = $1;
 		((struct arr_node *)$$->top)->base = new_arr_node(0);
 		$$->top = ((struct arr_node *)$$->top)->base;
-	
-	/*
-		$$.top = new_arr_node(0);
-		((struct arr_node *)$1.top)->base = $$.top;
-		$$.deepest = $1.deepest;*/
 	}
 	
 	// functions
@@ -342,11 +319,6 @@ pointer
 		$$ = $2;
 		((struct ptr_node *) $$->top)->to = new_ptr_node();
 		$$->top = ((struct ptr_node *)$$->top)->to;
-	
-	/*
-		$$.top = new_ptr_node();
-		((struct ptr_node *)$2.top)->to = $$.top;
-		$$.deepest = $2.deepest;*/
 	}
 	|'*' type_qual_list pointer {} //
 	;

@@ -23,6 +23,8 @@ struct symtable {
 	int scope_type;
 	struct symbol *s[TABLE_LENGTH];
 	struct symtable *prev; // symbol table one level up
+	char *file;
+	int line;
 };
 
 #define COMMON_NODE_ATTRIBUTES \
@@ -40,6 +42,7 @@ struct symbol {
 	char *file;
 	int line; 
 	char scope_type;
+	char storage;
 	struct symbol *chain;
 };
 
