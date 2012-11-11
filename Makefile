@@ -1,10 +1,10 @@
 a: bin/y.tab.o bin/lex.yy.o bin/symtable.o bin/declarations.o
 	gcc -g -o a bin/declarations.o bin/symtable.o bin/y.tab.o bin/lex.yy.o 
 
-bin/declarations.o: declarations.c 
+bin/declarations.o: declarations.c declarations.h
 	gcc -c declarations.c -o bin/declarations.o
 	
-bin/symtable.o: symtable.c 
+bin/symtable.o: symtable.c symtable.h
 	gcc -c symtable.c -o bin/symtable.o
 	
 bin/y.tab.o: parser.y

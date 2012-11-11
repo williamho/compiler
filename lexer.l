@@ -24,6 +24,7 @@ int line_num=1;
 char str_buf[MAX_STR_LEN];
 char filename[MAX_STR_LEN] = "<stdin>";
 char *buf_ptr;
+struct symtable *cur_symtable;
 %}
 
 NUM [0-9]
@@ -44,7 +45,14 @@ FLOATSUFFIX [fFlL]
 	.      { }
 }
 <FILENAME>{
-    \".*\" { yytext[yyleng-1] = 0; sscanf(yytext+1,"%s",filename); BEGIN(FLAGS); }
+    \".*\" { 
+		yytext[yyleng-1] = 0; 
+		sscanf(yytext+1,"%s",filename); 
+		if (cur_symtable)
+			remove_symtable();
+		new_symtable(S_FILE);
+		BEGIN(FLAGS); 
+	}
 	.      { }
 }
 <FLAGS>.*\n { BEGIN(INITIAL); }

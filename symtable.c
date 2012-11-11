@@ -4,8 +4,7 @@
 #include "symtable.h"
 #include "file_info.h"
 
-struct symtable global_symtable = {S_FILE};
-struct symtable *cur_symtable = &global_symtable;
+struct symtable *cur_symtable;
 
 struct generic_node *new_arr_node(int size) {
 	struct arr_node *node = (struct arr_node *) new_node(N_ARR);
@@ -41,6 +40,9 @@ struct generic_node *new_node(int ntype) {
 	case N_STRUCT:
 	case N_UNION:
 		node = calloc(1,sizeof(struct struct_node));
+		((struct struct_node *)node)->members.scope_type = S_STRUCT;
+		((struct struct_node *)node)->members.file = strdup(filename);
+		((struct struct_node *)node)->members.line = line_num;
 		break;
 	case N_ENUM: // Not implemented
 		node = malloc(sizeof(struct generic_node)); 
@@ -84,7 +86,7 @@ struct symbol *new_sym(char *sname, struct symtable *table) {
 	(*new_sym)->chain = cur_sym;
 	(*new_sym)->file = strdup(filename);
 	(*new_sym)->line = line_num;
-	(*new_sym)->scope_type = table->scope_type;
+	(*new_sym)->scope = table;
 	
 	return *new_sym;
 }
@@ -93,7 +95,10 @@ struct symbol *new_sym(char *sname, struct symtable *table) {
 struct symtable *new_symtable(int stype) {
 	struct symtable *old = cur_symtable;
 	cur_symtable = calloc(1,sizeof(struct symtable));
-	cur_symtable->prev = old;
+	if (stype == S_FILE)
+		cur_symtable->prev = 0;
+	else
+		cur_symtable->prev = old;
 	cur_symtable->scope_type = stype;
 	cur_symtable->file = strdup(filename);
 	cur_symtable->line = line_num;
@@ -104,7 +109,9 @@ struct symtable *new_symtable(int stype) {
 /** Remove current symbol table and return to nearest enclosing scope */
 int remove_symtable() {
 	struct symtable *old = cur_symtable;
-	cur_symtable = old->prev;
+	
+	if (cur_symtable->scope_type != S_FILE)
+		cur_symtable = old->prev;
 	
 	// Note: Memory leak. Freeing symbol table but not the symbols themselves.
 	free(old);

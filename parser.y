@@ -102,6 +102,7 @@ decl
 			for (dec = $2.leftmost; dec != 0; dec = dec->next, free(dec_old)) {
 				((struct ptr_node *)dec->top)->to = scalar_node;
 				((struct symbol *)dec->deepest)->storage = specs[SC];
+				
 				print_node_info_r(dec->deepest);
 				dec_old = dec; // Free this declarator
 			}

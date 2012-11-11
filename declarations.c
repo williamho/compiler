@@ -21,10 +21,7 @@ struct decl_spec *new_spec(char type, char val) {
 void print_node_info_r(struct generic_node *node) {
 	struct ptr_node *n = (struct ptr_node *) node;
 	
-	while (n->nodetype == N_ARR || n->nodetype == N_PTR || n->nodetype == N_IDENT) {
-		if (n->to == (struct generic_node *)n || n->to == 0)
-			break;
-	
+	while (n->nodetype == N_ARR || n->nodetype == N_PTR || n->nodetype == N_IDENT) {	
 		print_node_info((struct generic_node *)n);
 		printf("-> ");
 		
@@ -36,16 +33,35 @@ void print_node_info_r(struct generic_node *node) {
 }
 
 void print_node_info(struct generic_node *node) {
+	
 	switch(node->nodetype) {
-	case N_IDENT: 
-		printf("symbol '%s'",((struct symbol *)node)->id); 
-		switch(((struct symbol *)node)->storage) {
-		case SC_TYPEDEF: printf(" (typedef)"); break;
-		case SC_EXTERN: printf(" (extern)"); break; 
-		case SC_STATIC: printf(" (static)"); break;
-		case SC_REGISTER: printf(" (register)"); break;
+	case N_IDENT: {
+		struct symbol *n = (struct symbol *)node;
+		printf("'%s' declared at %s:%d ",n->id,n->file,n->line);
+		
+		if (n->storage != SC_AUTO) {
+			printf("with ");
+			switch(n->storage)  {
+			case SC_TYPEDEF: printf("typedef"); break;
+			case SC_EXTERN: printf("extern"); break; 
+			case SC_STATIC: printf("static"); break;
+			case SC_REGISTER: printf("register"); break;
+			break;
+			printf(" storage ");
+			}
 		}
-		break;
+		
+		printf("[in ");
+		switch(n->scope->scope_type) {
+		case S_FILE: printf("file"); break;
+		case S_BLOCK: printf("block"); break;
+		case S_FUNC: printf("function"); break;
+		case S_PROTO: printf("prototype"); break;
+		case S_STRUCT: printf("struct/union"); break;
+		}
+		printf(" scope starting at %s:%d]",n->scope->file,n->scope->line);
+	}
+	break;
 	case N_ARR:	printf("array of %d",((struct arr_node *)node)->size);	break;
 	case N_PTR: printf("pointer to");	break;
 	case N_VOID: printf("void"); break;
@@ -71,7 +87,7 @@ void print_node_info(struct generic_node *node) {
 	case N_ENUM: printf("enum"); break;
 	case N_TYPEDEF: printf("typedef"); break;
 	case N_FUNC: printf("function"); break;
-	//case N_TYPENAME: break;
+
 	default:
 		printf("type %d",node->nodetype);
 		break;

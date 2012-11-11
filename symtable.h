@@ -21,15 +21,14 @@ enum node_types {
 
 struct symtable {
 	int scope_type;
-	struct symbol *s[TABLE_LENGTH];
-	struct symtable *prev; // symbol table one level up
 	char *file;
 	int line;
+	struct symbol *s[TABLE_LENGTH];
+	struct symtable *prev; // symbol table one level up
 };
 
 #define COMMON_NODE_ATTRIBUTES \
-	char nodetype; \
-	char type_qual
+	char nodetype
 
 struct generic_node {
 	COMMON_NODE_ATTRIBUTES;
@@ -41,7 +40,7 @@ struct symbol {
 	char *id;
 	char *file;
 	int line; 
-	char scope_type;
+	struct symtable *scope;
 	char storage;
 	struct symbol *chain;
 };
