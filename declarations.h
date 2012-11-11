@@ -34,11 +34,21 @@ struct declarator {
 	struct generic_node *top, *deepest;
 	struct declarator *next; // Next declarator in list
 };
- 
+
+struct declarator_list {
+	struct declarator *leftmost, *rightmost;
+};
+
 struct generic_node;
+struct decl_specs;
 struct decl_spec *new_spec(char type, char val);
 struct declarator *new_declarator(struct generic_node *n);
+void new_declarator_list(struct declarator_list *dl, struct declarator *d);
+void add_declarator_list(struct declarator_list *to, struct declarator_list *from, struct declarator *d);
+void new_decl(struct decl_spec *d, struct declarator_list *dl);
+
 void print_node_info(struct generic_node *node);
+void print_node_info_r(struct generic_node *node);
 char *check_decl_specs(struct decl_spec *spec);
 int check_storage_classes(char *sc);
 int check_type_specs(char *ts);

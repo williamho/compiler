@@ -30,19 +30,17 @@ int cur_scope;
 	struct decl_spec *specs;
 	struct declarator *declarator;
 	
-	struct declarator_list {
-		struct declarator *leftmost, *rightmost;
-	} decl_list;
+	struct declarator_list decl_list;
 }
 
 %token <cval> CHARLIT
 %token <sval> STRING IDENT TYPENAME
 %token <num> NUMBER 
 
-%type <specs> decl_specs decl_spec type_spec storage_class_spec type_qual 
+%type <specs> decl_specs decl_spec type_spec storage_class_spec type_qual spec_qual_list
 %type <num> const_expr
-%type <declarator> direct_declarator declarator pointer init_declarator 
-%type <decl_list> init_declarator_list 
+%type <declarator> direct_declarator declarator pointer init_declarator struct_declarator
+%type <decl_list> init_declarator_list struct_declarator_list
 
 %token SIZEOF INLINE
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
@@ -84,13 +82,12 @@ function_definition
 /* +==============+
    | DECLARATIONS |
    +==============+ */
-	
+   
 decl
 	:decl_specs ';' {} 
 	|decl_specs init_declarator_list ';' {
-		/*int type = check_type_specs($1.type_flags);
-		int storage = check_storage_classes($1.storage_flags);
-		*/
+		new_decl($1,&$2);
+	/*
 		char *specs = check_decl_specs($1);
 		
 		struct generic_node *scalar_node, *node;
@@ -104,10 +101,10 @@ decl
 				((struct symbol *)dec->deepest)->storage = specs[SC];
 				
 				print_node_info_r(dec->deepest);
-				dec_old = dec; // Free this declarator
+				dec_old = dec; // old declarator freed before next loop
 			}
 		}
-		free(specs);
+		free(specs);*/
 	}
 	;
 
@@ -155,15 +152,11 @@ decl_spec
 	;
 	
 init_declarator_list
-	:init_declarator { 
-		$$.leftmost = $$.rightmost = $1;
-		$1->next = 0;
+	:init_declarator {
+		new_declarator_list(&$$,$1);
 	}
 	|init_declarator_list ',' init_declarator {
-		$$.leftmost = $1.leftmost;
-		$$.rightmost = $3;
-		($1.rightmost)->next = $3;
-		($$.rightmost)->next = 0;
+		add_declarator_list(&$$,&$1,$3);
 	}
 	;
 
@@ -198,41 +191,59 @@ type_spec
 	;
 
 struct_or_union_spec
-	:struct_or_union IDENT '{' struct_decl_list '}'
-	|struct_or_union '{' struct_decl_list '}'
+	:struct_or_union IDENT '{' struct_decl_list '}' {
+		
+	}
+	|struct_or_union '{' struct_decl_list '}' {
+		
+	}
 	|struct_or_union IDENT
 	;
 
 struct_or_union
 	:STRUCT
-	|UNION
+	|UNION { yywarn("unions not implemented"); }
 	;
 
 struct_decl_list
-	:struct_decl
-	|struct_decl_list struct_decl
+	:struct_decl {
+
+	}
+	|struct_decl_list struct_decl {
+
+	}
 	;
 
 struct_decl
-	:spec_qual_list struct_declarator_list ';'
+	:spec_qual_list struct_declarator_list ';' { 
+		new_decl($1,&$2);
+	}
 	;
 
 spec_qual_list
-	:type_spec spec_qual_list
+	:type_spec spec_qual_list {
+		$2->next = $1; // Add type_spec to linked list of specs
+		$$ = $2;
+	}
 	|type_spec
-	|type_qual spec_qual_list
-	|type_qual
+	|type_qual spec_qual_list { yywarn("type qualifiers not implemented"); }
+	|type_qual { yywarn("type qualifiers not implemented"); }
 	;
 
 struct_declarator_list
-	:struct_declarator
-	|struct_declarator_list ',' struct_declarator
+	// same as init_decl_list
+	:struct_declarator {
+		new_declarator_list(&$$,$1);
+	}
+	|struct_declarator_list ',' struct_declarator {
+		add_declarator_list(&$$,&$1,$3);
+	}
 	;
 
 struct_declarator
 	:declarator
-	|':' const_expr
-	|declarator ':' const_expr
+	|':' const_expr { yywarn("bit fields not implemented"); }
+	|declarator ':' const_expr { yywarn("bit fields not implemented"); }
 	;
 
 enum_spec
@@ -297,13 +308,13 @@ direct_declarator
 
 pointer 
 	:'*' { $$ = new_declarator((struct generic_node *)new_ptr_node()); }
-	|'*' type_qual_list {} // ??
+	|'*' type_qual_list { yywarn("type qualifiers not implemented"); } 
 	|'*' pointer {
 		$$ = $2;
 		((struct ptr_node *) $$->top)->to = new_ptr_node();
 		$$->top = ((struct ptr_node *)$$->top)->to;
 	}
-	|'*' type_qual_list pointer {} //
+	|'*' type_qual_list pointer { yywarn("type qualifiers not implemented"); } 
 	;
 
 type_qual_list
@@ -311,7 +322,7 @@ type_qual_list
 	|type_qual_list type_qual
 	;
 
-
+// Functions
 param_type_list
 	:param_list
 	|param_list ',' ELLIPSIS

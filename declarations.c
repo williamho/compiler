@@ -4,6 +4,19 @@
 #include "declarations.h"
 #include "symtable.h"
 
+void new_declarator_list(struct declarator_list *dl, struct declarator *d) {
+	dl->rightmost = dl->leftmost = d;
+	d->next = 0;
+}
+
+void add_declarator_list(struct declarator_list *to, 
+	struct declarator_list *from, struct declarator *d) {
+	to->leftmost = from->leftmost;
+	to->rightmost = d;
+	from->rightmost->next = d;
+	to->rightmost->next = 0;
+}
+
 struct declarator *new_declarator(struct generic_node *n) {
 	struct declarator *d = malloc(sizeof(struct declarator));
 	d->top = d->deepest = n;
@@ -18,10 +31,31 @@ struct decl_spec *new_spec(char type, char val) {
 	return spec;
 }
 
+void new_decl(struct decl_spec *d, struct declarator_list *dl) {
+	char *specs = check_decl_specs(d);
+	
+	struct generic_node *scalar_node, *node;
+	struct declarator *dec, *dec_old;
+	
+	if (specs[TS] >= 0 && specs[SC]>= 0) {
+		scalar_node = new_node(specs[TS]); 
+		
+		for (dec = dl->leftmost; dec != 0; dec = dec->next, free(dec_old)) {
+			((struct ptr_node *)dec->top)->to = scalar_node;
+			((struct symbol *)dec->deepest)->storage = specs[SC];
+			
+			print_node_info_r(dec->deepest);
+			dec_old = dec; // old declarator freed before next loop
+		}
+	}
+	free(specs);
+}
+
 void print_node_info_r(struct generic_node *node) {
 	struct ptr_node *n = (struct ptr_node *) node;
 	
-	while (n->nodetype == N_ARR || n->nodetype == N_PTR || n->nodetype == N_IDENT) {	
+	while (n->nodetype == N_ARR || n->nodetype == N_PTR || 
+			n->nodetype == N_IDENT) {	
 		print_node_info((struct generic_node *)n);
 		printf("-> ");
 		
