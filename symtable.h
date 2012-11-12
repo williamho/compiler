@@ -45,8 +45,18 @@ struct generic_node {
 	
 struct symbol {
 	COMMON_SYMBOL_ATTRIBUTES;
-	
 	char storage;
+};
+
+struct struct_tag {
+	COMMON_SYMBOL_ATTRIBUTES;
+	struct symtable *members; // mini-symtable to keep track of struct members
+	char complete;
+};
+
+struct func {
+	COMMON_SYMBOL_ATTRIBUTES;
+	struct symtable *args; // mini-symtable to keep track of function arguments
 };
 
 struct typedef_node {
@@ -65,27 +75,17 @@ struct arr_node {
 	int size;
 };
 
-struct struct_node {
-	COMMON_NODE_ATTRIBUTES;
-	struct symtable members; // mini-symtable to keep track of struct members
-};
-
-struct func_node {
-	COMMON_NODE_ATTRIBUTES;
-	struct generic_node *returns;
-	struct symtable args; // mini-symtable to keep track of function arguments
-};
-
 struct symtable *new_symtable(int stype);
 int remove_symtable();
 unsigned long hash(unsigned char *str);
 struct generic_node *new_node(int ntype);
-struct symbol *new_sym(char *sname);
+struct symbol *new_sym(char *sname, char symtype);
 int add_sym(struct symbol *sym, struct symtable *table);
 void free_sym(struct symbol *sym);
 struct symbol *get_sym(char *sname);
 struct generic_node *new_arr_node(int size);
 struct generic_node *new_ptr_node();
+struct struct_tag *new_struct(char *struct_name);
 
 /*
 long long get_sym_p(struct symbol *sym);

@@ -95,39 +95,33 @@ void new_decl(struct decl_spec *d, struct declarator_list *dl,
 /** Print information about a node and its linked nodes, recursively */
 void print_node_info_r(struct generic_node *node) {
 	struct ptr_node *n = (struct ptr_node *) node;
+	int i, depth = 0;
 	
 	while (n->nodetype == N_ARR || n->nodetype == N_PTR || 
 			n->nodetype == N_IDENT) {	
+		for (i=0; i<depth; i++)
+			printf("   ");
+		depth++;
 		print_node_info((struct generic_node *)n);
-		printf("-> ");
+		putchar('\n');
 		
 		n = (struct ptr_node *)(n->to);
 	}	
-		
+	
+	for (i=0; i<depth; i++)
+		printf("   ");		
 	print_node_info((struct generic_node *)n);
 	putchar('\n');
 }
 
 /** Print into about a node */
 void print_node_info(struct generic_node *node) {
+	struct symbol *n = (struct symbol *)node;
 	switch(node->nodetype) {
-	case N_IDENT: {
-		struct symbol *n = (struct symbol *)node;
+	case N_IDENT:
 		printf("'%s' declared at %s:%d ",n->id,n->file,n->line);
 		
-		if (n->storage != SC_AUTO) {
-			printf("with ");
-			switch(n->storage)  {
-			case SC_TYPEDEF: printf("typedef"); break;
-			case SC_EXTERN: printf("extern"); break; 
-			case SC_STATIC: printf("static"); break;
-			case SC_REGISTER: printf("register"); break;
-			break;
-			printf(" storage ");
-			}
-		}
-		
-		printf("[in ");
+		putchar('[');
 		switch(n->scope->scope_type) {
 		case S_FILE: printf("file"); break;
 		case S_BLOCK: printf("block"); break;
@@ -135,8 +129,20 @@ void print_node_info(struct generic_node *node) {
 		case S_PROTO: printf("prototype"); break;
 		case S_STRUCT: printf("struct/union"); break;
 		}
-		printf(" scope starting at %s:%d]",n->scope->file,n->scope->line);
-	}
+		printf(" scope starting at %s:%d] as a\n",n->scope->file,n->scope->line);
+		printf("variable ");
+		if (n->storage != SC_AUTO) {
+			putchar('(');
+			switch(n->storage)  {
+			case SC_TYPEDEF: printf("typedef"); break;
+			case SC_EXTERN: printf("extern"); break; 
+			case SC_STATIC: printf("static"); break;
+			case SC_REGISTER: printf("register"); break;
+			break;
+			}
+			printf(") ");
+		}
+		printf("of type");
 	break;
 	case N_ARR:	printf("array of %d",((struct arr_node *)node)->size);	break;
 	case N_PTR: printf("pointer to");	break;
@@ -150,7 +156,7 @@ void print_node_info(struct generic_node *node) {
 	case N_LONG: printf("long"); break;
 	case N_ULONG: printf("unsigned long"); break;
 	case N_LONGLONG: printf("long long"); break;
-	case N_ULONGLONG: printf("unsigned long long"); 
+	case N_ULONGLONG: printf("unsigned long long"); break;
 	case N_FLOAT: printf("float"); break;
 	case N_CFLOAT: printf("complex float"); break;
 	case N_DOUBLE: printf("double"); break;
@@ -158,7 +164,9 @@ void print_node_info(struct generic_node *node) {
 	case N_LONGDOUBLE: printf("long double"); break;
 	case N_CLONGDOUBLE: printf("complex long double"); break;
 	case N_BOOL: printf("bool"); break;
-	case N_STRUCT: printf("struct"); break;
+	case N_STRUCT: 
+		printf("struct %s (defined at %s:%d)",n->id,n->file,n->line); 
+		break;
 	case N_UNION: printf("union"); break;
 	case N_ENUM: printf("enum"); break;
 	case N_TYPEDEF: printf("typedef"); break;

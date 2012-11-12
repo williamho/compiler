@@ -26,7 +26,8 @@ enum type_quals {
 
 struct decl_spec {
 	char type; // type spec or storage class
-	char val;
+	char val; // for storage classes or scalar nodes
+	struct generic_node *node; // for structs, enums, typedefs
 	struct decl_spec *next; // next decl spec in the list
 };
 

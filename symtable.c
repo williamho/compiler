@@ -35,14 +35,11 @@ struct generic_node *new_node(int ntype) {
 		node = malloc(sizeof(struct arr_node));
 		break;
 	case N_FUNC:
-		node = calloc(1,sizeof(struct func_node));
+		node = malloc(sizeof(struct func));
 		break;
 	case N_STRUCT:
 	case N_UNION:
-		node = calloc(1,sizeof(struct struct_node));
-		((struct struct_node *)node)->members.scope_type = S_STRUCT;
-		((struct struct_node *)node)->members.file = strdup(filename);
-		((struct struct_node *)node)->members.line = line_num;
+		node = malloc(sizeof(struct struct_tag));
 		break;
 	case N_ENUM: // Not implemented
 		node = malloc(sizeof(struct generic_node)); 
@@ -68,6 +65,8 @@ int add_sym(struct symbol *sym, struct symtable *table) {
 			cur_sym = cur_sym->chain;
 		
 		if (cur_sym) {
+			if (sym->nodetype == N_STRUCT && !((struct struct_tag *)sym)->complete)
+				return 0;
 			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
 			free_sym(sym);
 			return 1;
@@ -83,11 +82,15 @@ int add_sym(struct symbol *sym, struct symtable *table) {
 }
 
 /** Create new symbol (not installed in any symbol table) */
-struct symbol *new_sym(char *sname) {
+struct symbol *new_sym(char *sname, char symtype) {
 	struct symbol *sym;
-	sym = malloc(sizeof(struct symbol));
+	switch(symtype) {
+	case N_IDENT: sym = malloc(sizeof(struct symbol)); break;
+	case N_STRUCT: sym = calloc(1,sizeof(struct struct_tag)); break;
+	case N_FUNC: sym = calloc(1,sizeof(struct func)); break;
+	}
 	
-	sym->nodetype = N_IDENT;
+	sym->nodetype = symtype;
 	sym->id = sname;
 	sym->file = strdup(filename);
 	sym->line = line_num;
@@ -102,6 +105,20 @@ void free_sym(struct symbol *sym) {
 	free(sym->file);
 	free(sym->id);
 	free(sym);
+}
+
+struct struct_tag *new_struct(char *struct_name) {
+	struct struct_tag *st = (struct struct_tag *)new_sym(struct_name,N_STRUCT);
+	
+	//printf("\nnew struct %s\n",st->id);
+	st->members = cur_symtable;
+	st->complete = 1;
+	cur_symtable = cur_symtable->prev;
+	
+	// If not given a name, don't add it to the symbol table
+	if (!struct_name)
+		add_sym((struct symbol *)st,0);
+	return st;
 }
 
 /*
