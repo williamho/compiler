@@ -40,7 +40,7 @@ int cur_scope;
 %type <specs> decl_specs decl_spec type_spec storage_class_spec type_qual spec_qual_list
 %type <num> const_expr
 %type <declarator> direct_declarator declarator pointer init_declarator struct_declarator
-%type <decl_list> init_declarator_list struct_declarator_list
+%type <decl_list> init_declarator_list struct_declarator_list struct_decl struct_decl_list
 
 %token SIZEOF INLINE
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
@@ -86,25 +86,8 @@ function_definition
 decl
 	:decl_specs ';' {} 
 	|decl_specs init_declarator_list ';' {
-		new_decl($1,&$2);
-	/*
-		char *specs = check_decl_specs($1);
-		
-		struct generic_node *scalar_node, *node;
-		struct declarator *dec, *dec_old;
-		
-		if (specs[TS] >= 0 && specs[SC]>= 0) {
-			scalar_node = new_node(specs[TS]); 
-			
-			for (dec = $2.leftmost; dec != 0; dec = dec->next, free(dec_old)) {
-				((struct ptr_node *)dec->top)->to = scalar_node;
-				((struct symbol *)dec->deepest)->storage = specs[SC];
-				
-				print_node_info_r(dec->deepest);
-				dec_old = dec; // old declarator freed before next loop
-			}
-		}
-		free(specs);*/
+		new_declaration($1,&$2);
+		add_declarators_to_table(&$2,0);
 	}
 	;
 
@@ -115,34 +98,6 @@ decl_specs
 		$$ = $2;
 	}
 	;
-/*
-	:storage_class_spec { new_spec(SC,$1,);
-		memset($$.storage_flags,0,SC_COUNT); 
-		$$.storage_flags[$1]++; 
-	}
-	|storage_class_spec decl_specs { 
-		$$ = $2; 
-		$$.storage_flags[$1]++; 
-	}
-	|type_spec { 
-		memset($$.type_flags,0,TS_COUNT); 
-		$$.type_flags[$1]++; 
-	}
-	|type_spec decl_specs { 
-		$$ = $2; 
-		$$.type_flags[$1]++; 
-	}
-	|type_qual {
-		memset($$.type_quals,0,TQ_COUNT); 
-		$$.type_quals[$1]++;
-	}
-	|type_qual decl_specs {
-		$$ = $2;
-		$$.type_quals[$1]++;
-	}
-	|INLINE {}
-	|INLINE decl_specs {}
-	;*/
 
 decl_spec
 	:storage_class_spec
@@ -192,10 +147,14 @@ type_spec
 
 struct_or_union_spec
 	:struct_or_union IDENT '{' struct_decl_list '}' {
-		
+		// TODO: GOTTA WORK ON THIS!!!
+		struct struct_node *gn = (struct struct_node *)new_node(N_STRUCT);
+		add_declarators_to_table(&$4,&gn->members);
 	}
 	|struct_or_union '{' struct_decl_list '}' {
-		
+	
+		struct struct_node *gn = (struct struct_node *)new_node(N_STRUCT);
+		add_declarators_to_table(&$3,&gn->members);
 	}
 	|struct_or_union IDENT
 	;
@@ -206,17 +165,18 @@ struct_or_union
 	;
 
 struct_decl_list
-	:struct_decl {
-
-	}
+	:struct_decl
 	|struct_decl_list struct_decl {
-
+		$$.leftmost = $1.leftmost;
+		$1.rightmost->next = $2.leftmost;
+		$$.rightmost = $2.rightmost;
 	}
 	;
 
 struct_decl
 	:spec_qual_list struct_declarator_list ';' { 
-		new_decl($1,&$2);
+		new_declaration($1,&$2);
+		$$ = $2;
 	}
 	;
 
@@ -281,7 +241,9 @@ declarator
 	
 direct_declarator
 	:IDENT {
-		$$ = new_declarator((struct generic_node *)new_sym($1,0));
+		/* TODO: Fix this for structs. How to pass?? Or do we not want to 
+				install into symtable until the decl is processed? */
+		$$ = new_declarator((struct generic_node *)new_sym($1));
 	}
 	|'(' declarator ')' { $$=$2; }
 	|direct_declarator '[' const_expr ']' {

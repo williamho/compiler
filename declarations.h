@@ -41,11 +41,14 @@ struct declarator_list {
 
 struct generic_node;
 struct decl_specs;
+struct symtable;
 struct decl_spec *new_spec(char type, char val);
 struct declarator *new_declarator(struct generic_node *n);
 void new_declarator_list(struct declarator_list *dl, struct declarator *d);
 void add_declarator_list(struct declarator_list *to, struct declarator_list *from, struct declarator *d);
-void new_decl(struct decl_spec *d, struct declarator_list *dl);
+void new_declaration(struct decl_spec *d, struct declarator_list *dl);
+void add_declarators_to_table(struct declarator_list *dl, struct symtable *st);
+void new_decl(struct decl_spec *d, struct declarator_list *dl, struct symtable *st);
 
 void print_node_info(struct generic_node *node);
 void print_node_info_r(struct generic_node *node);

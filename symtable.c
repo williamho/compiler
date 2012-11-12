@@ -54,7 +54,61 @@ struct generic_node *new_node(int ntype) {
 	node->nodetype = ntype;
 }
 
-/** Install new symbol in specified symbol table */
+/** Add symbol to symbol table */
+int add_sym(struct symbol *sym, struct symtable *table) {
+	unsigned long hashval = hash(sym->id);
+	struct symbol *cur_sym;
+	
+	if (!table)
+		table = cur_symtable;
+	
+	/*printf("debug '%s' @ %p\n",sym->id, sym);
+	printf("before: %p\n",table->s[hashval]);*/
+	if (cur_sym = table->s[hashval]) { // collision
+		// Compare names of existing symbols with that hash value
+		while (cur_sym && strcmp(sym->id, cur_sym->id))
+			cur_sym = cur_sym->chain;
+		
+		if (cur_sym) {
+			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
+			free_sym(sym);
+			return -1;
+		}
+		
+		cur_sym = table->s[hashval];
+	}
+	
+	table->s[hashval] = sym;
+	sym->chain = cur_sym;
+	sym->scope = table;
+	//printf("debug: symbol %s installed at %lu / chain:%p!\n",sym->id,hashval,sym->chain);
+	//printf("after: %p\n",table->s[hashval]);
+	return 0;
+}
+
+/** Create new symbol (not installed in any symbol table) */
+struct symbol *new_sym(char *sname) {
+	struct symbol *sym;
+	sym = malloc(sizeof(struct symbol));
+	
+	sym->nodetype = N_IDENT;
+	sym->id = sname;
+	sym->file = strdup(filename);
+	sym->line = line_num;
+	sym->type = 0;
+	sym->chain = 0;
+	sym->scope = 0;
+	
+	return sym;
+}
+
+void free_sym(struct symbol *sym) {
+	free(sym->file);
+	free(sym->id);
+	free(sym);
+}
+
+/*
 struct symbol *new_sym(char *sname, struct symtable *table) {
 	unsigned long hashval = hash(sname);
 	struct symbol *cur_sym, **new_sym;
@@ -77,7 +131,6 @@ struct symbol *new_sym(char *sname, struct symtable *table) {
 	
 	new_sym = table->s + hashval;
 	*new_sym = malloc(sizeof(struct symbol));
-	/* ??? */
 	
 	// Add symbol to symtable
 	(*new_sym)->nodetype = N_IDENT;
@@ -89,7 +142,7 @@ struct symbol *new_sym(char *sname, struct symtable *table) {
 	(*new_sym)->scope = table;
 	
 	return *new_sym;
-}
+}*/
 
 /** Create new symbol table upon entering a new scope */
 struct symtable *new_symtable(int stype) {

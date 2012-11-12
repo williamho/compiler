@@ -4,11 +4,14 @@
 #include "declarations.h"
 #include "symtable.h"
 
+/** Start a new declarator list */
 void new_declarator_list(struct declarator_list *dl, struct declarator *d) {
 	dl->rightmost = dl->leftmost = d;
 	d->next = 0;
 }
 
+/** Add declarator "d" to existing declarator list "from", 
+	store the result in "to" */
 void add_declarator_list(struct declarator_list *to, 
 	struct declarator_list *from, struct declarator *d) {
 	to->leftmost = from->leftmost;
@@ -23,6 +26,7 @@ struct declarator *new_declarator(struct generic_node *n) {
 	return d;
 }
 
+/** Start a new decl_spec list */
 struct decl_spec *new_spec(char type, char val) {
 	struct decl_spec *spec = malloc(sizeof (struct decl_spec));
 	spec->type = type;
@@ -31,7 +35,37 @@ struct decl_spec *new_spec(char type, char val) {
 	return spec;
 }
 
-void new_decl(struct decl_spec *d, struct declarator_list *dl) {
+/** Process a declarator list and install the symbols into a symbol table */
+void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
+	char *specs = check_decl_specs(d);
+	
+	struct generic_node *scalar_node, *node;
+	struct declarator *dec, *dec_old;
+	
+	if (specs[TS] >= 0 && specs[SC]>= 0) {
+		scalar_node = new_node(specs[TS]); 
+		
+		for (dec = dl->leftmost; dec != 0; dec = dec->next) {
+			((struct ptr_node *)dec->top)->to = scalar_node;
+			((struct symbol *)dec->deepest)->storage = specs[SC];
+		}
+	}
+	free(specs);
+}
+
+void add_declarators_to_table(struct declarator_list *dl, struct symtable *st) {
+	struct declarator *dec, *dec_old;
+	for (dec = dl->leftmost; dec != 0; dec = dec->next, free(dec_old)) {
+		add_sym((struct symbol *)dec->deepest,st);
+		print_node_info_r(dec->deepest);
+		dec_old = dec; // old declarator freed before next loop
+	}
+}
+
+/** Process a declarator list and install the symbols into a symbol table */
+/*
+void new_decl(struct decl_spec *d, struct declarator_list *dl,
+	struct symtable *st) {
 	char *specs = check_decl_specs(d);
 	
 	struct generic_node *scalar_node, *node;
@@ -44,13 +78,15 @@ void new_decl(struct decl_spec *d, struct declarator_list *dl) {
 			((struct ptr_node *)dec->top)->to = scalar_node;
 			((struct symbol *)dec->deepest)->storage = specs[SC];
 			
+			add_sym((struct symbol *)dec->deepest,st); //should this be 0
 			print_node_info_r(dec->deepest);
 			dec_old = dec; // old declarator freed before next loop
 		}
 	}
 	free(specs);
-}
+}*/
 
+/** Print information about a node and its linked nodes, recursively */
 void print_node_info_r(struct generic_node *node) {
 	struct ptr_node *n = (struct ptr_node *) node;
 	
@@ -66,8 +102,8 @@ void print_node_info_r(struct generic_node *node) {
 	putchar('\n');
 }
 
+/** Print into about a node */
 void print_node_info(struct generic_node *node) {
-	
 	switch(node->nodetype) {
 	case N_IDENT: {
 		struct symbol *n = (struct symbol *)node;
@@ -129,6 +165,9 @@ void print_node_info(struct generic_node *node) {
 	putchar(' ');
 }
 
+/** Check declaration specifiers (type, storage, qualifiers).
+	If valid, return pointer to an array of three chars specifying the values 
+	for each declaration specifier */
 char *check_decl_specs(struct decl_spec *spec) {
 	char type_flags[TS_COUNT] = {0}; 
 	char storage_flags[SC_COUNT] = {0};
@@ -157,6 +196,7 @@ char *check_decl_specs(struct decl_spec *spec) {
 	return ret;
 }
 
+/** Check validity of storage classes. If valid, return which storage class. */
 int check_storage_classes(char *sc) {
 	int i, total = 0;
 	for (i=0; i<SC_COUNT; i++)
@@ -172,6 +212,7 @@ int check_storage_classes(char *sc) {
 	return i;
 }
  
+/** Check validity of type specifiers. If valid, return which type spec. */
 int check_type_specs(char *ts) {
 	int i, total = 0;
 	for (i=0; i<TS_COUNT; i++) {
