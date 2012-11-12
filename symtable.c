@@ -62,8 +62,6 @@ int add_sym(struct symbol *sym, struct symtable *table) {
 	if (!table)
 		table = cur_symtable;
 	
-	/*printf("debug '%s' @ %p\n",sym->id, sym);
-	printf("before: %p\n",table->s[hashval]);*/
 	if (cur_sym = table->s[hashval]) { // collision
 		// Compare names of existing symbols with that hash value
 		while (cur_sym && strcmp(sym->id, cur_sym->id))
@@ -72,7 +70,7 @@ int add_sym(struct symbol *sym, struct symtable *table) {
 		if (cur_sym) {
 			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
 			free_sym(sym);
-			return -1;
+			return 1;
 		}
 		
 		cur_sym = table->s[hashval];
@@ -81,8 +79,6 @@ int add_sym(struct symbol *sym, struct symtable *table) {
 	table->s[hashval] = sym;
 	sym->chain = cur_sym;
 	sym->scope = table;
-	//printf("debug: symbol %s installed at %lu / chain:%p!\n",sym->id,hashval,sym->chain);
-	//printf("after: %p\n",table->s[hashval]);
 	return 0;
 }
 

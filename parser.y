@@ -87,7 +87,7 @@ decl
 	:decl_specs ';' {} 
 	|decl_specs init_declarator_list ';' {
 		new_declaration($1,&$2);
-		add_declarators_to_table(&$2,0);
+		//add_declarators_to_table(&$2,0);
 	}
 	;
 
@@ -148,35 +148,37 @@ type_spec
 struct_or_union_spec
 	:struct_or_union IDENT '{' struct_decl_list '}' {
 		// TODO: GOTTA WORK ON THIS!!!
-		struct struct_node *gn = (struct struct_node *)new_node(N_STRUCT);
-		add_declarators_to_table(&$4,&gn->members);
+		//struct struct_node *gn = (struct struct_node *)new_node(N_STRUCT);
+		//add_declarators_to_table(&$4,&gn->members);
 	}
 	|struct_or_union '{' struct_decl_list '}' {
 	
-		struct struct_node *gn = (struct struct_node *)new_node(N_STRUCT);
-		add_declarators_to_table(&$3,&gn->members);
+		//struct struct_node *gn = (struct struct_node *)new_node(N_STRUCT);
+		//add_declarators_to_table(&$3,&gn->members);
 	}
 	|struct_or_union IDENT
 	;
 
 struct_or_union
-	:STRUCT
+	:STRUCT {  }
 	|UNION { yywarn("unions not implemented"); }
 	;
 
 struct_decl_list
 	:struct_decl
 	|struct_decl_list struct_decl {
+	/*
 		$$.leftmost = $1.leftmost;
 		$1.rightmost->next = $2.leftmost;
-		$$.rightmost = $2.rightmost;
+		$$.rightmost = $2.rightmost;*/
 	}
 	;
 
 struct_decl
 	:spec_qual_list struct_declarator_list ';' { 
+	/*
 		new_declaration($1,&$2);
-		$$ = $2;
+		$$ = $2;*/
 	}
 	;
 

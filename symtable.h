@@ -30,19 +30,23 @@ struct symtable {
 #define COMMON_NODE_ATTRIBUTES \
 	char nodetype
 
+#define COMMON_SYMBOL_ATTRIBUTES \
+	COMMON_NODE_ATTRIBUTES; \
+	struct generic_node *type; \
+	char *id; \
+	char *file; \
+	int line; \
+	struct symtable *scope; \
+	struct symbol *chain
+	
 struct generic_node {
 	COMMON_NODE_ATTRIBUTES;
 };
 	
 struct symbol {
-	COMMON_NODE_ATTRIBUTES;
-	struct generic_node *type;
-	char *id;
-	char *file;
-	int line; 
-	struct symtable *scope;
+	COMMON_SYMBOL_ATTRIBUTES;
+	
 	char storage;
-	struct symbol *chain;
 };
 
 struct typedef_node {

@@ -45,15 +45,21 @@ void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
 	if (specs[TS] >= 0 && specs[SC]>= 0) {
 		scalar_node = new_node(specs[TS]); 
 		
-		for (dec = dl->leftmost; dec != 0; dec = dec->next) {
+		for (dec = dl->leftmost; dec != 0; dec = dec->next, free(dec_old)) {
 			((struct ptr_node *)dec->top)->to = scalar_node;
 			((struct symbol *)dec->deepest)->storage = specs[SC];
+			
+			if (!add_sym((struct symbol *)dec->deepest,0))
+				print_node_info_r(dec->deepest);
+			dec_old = dec; // old declarator freed before next loop
 		}
 	}
 	free(specs);
 }
 
+// useless
 void add_declarators_to_table(struct declarator_list *dl, struct symtable *st) {
+	return;
 	struct declarator *dec, *dec_old;
 	for (dec = dl->leftmost; dec != 0; dec = dec->next, free(dec_old)) {
 		add_sym((struct symbol *)dec->deepest,st);
