@@ -7,11 +7,13 @@
 #include <string.h>
 #include "symtable.h"
 #include "declarations.h"
+#include "file_info.h"
 
-extern int yylex();
-extern int yyparse(void);
-extern char *filename;
-extern struct symtable *cur_symtable;
+int yylex();
+int yyparse(void);
+int line_num;
+char filename[MAX_STR_LEN];
+struct symtable *cur_symtable;
 
 int cur_scope;
 %}
@@ -139,20 +141,26 @@ type_spec
 	|UNSIGNED { $$ = new_spec(TS,TS_UNSIGNED); }
 	|_BOOL { $$ = new_spec(TS,TS_BOOL); }
 	|_COMPLEX { $$ = new_spec(TS,TS_COMPLEX); }
-	|struct_or_union_spec { $$ = new_spec(TS,TS_STRUCT); }
+	|struct_or_union_spec { $$ = $1; }
 	|enum_spec { $$ = new_spec(TS,TS_ENUM); }
 	|TYPEDEF_NAME { $$ = new_spec(TS,TS_TYPENAME); }
 	;
 	
 struct_or_union_spec
-	:struct_or_union IDENT '{' struct_decl_list '}' {
-		$$ = (struct generic_node *)new_struct($2);
+	:struct_or_union IDENT '{' { printf("struct %s declaration at %s:%d {\n", $2,filename,line_num); } struct_decl_list '}' {
+		printf("}\n");
+		$$ = new_spec(TS,TS_STRUCT);
+		$$->node = (struct generic_node *)new_struct($2);
 	}
-	|struct_or_union '{' struct_decl_list '}' {
-		$$ = (struct generic_node *)new_struct(0);
+	|struct_or_union { printf("struct declaration at %s:%d {\n",filename,line_num); } '{' struct_decl_list '}' {
+		printf("}\n");
+		$$ = new_spec(TS,TS_STRUCT);
+		$$->node = (struct generic_node *)new_struct(0);
 	}
-	|struct_or_union IDENT { // incomplete declaration
-		$$ = (struct generic_node *)new_sym($2,N_STRUCT);
+	|struct_or_union IDENT {
+	// Check if struct/union exists. If not, incomplete declaration.
+		$$ = new_spec(TS,TS_STRUCT);
+		$$->node = (struct generic_node *)new_sym($2,N_STRUCT);
 	}
 	;
 

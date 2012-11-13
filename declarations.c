@@ -27,70 +27,65 @@ struct declarator *new_declarator(struct generic_node *n) {
 }
 
 /** Start a new decl_spec list */
-struct decl_spec *new_spec(char type, char val) {
+struct decl_spec *new_spec(char which, char val) {
 	struct decl_spec *spec = malloc(sizeof (struct decl_spec));
-	spec->type = type;
-	spec->val = val;
+	spec->type = spec->storage = spec->qualifier = -1;
+	switch (which) {
+	case TS: spec->type = val; break;
+	case SC: spec->storage = val; break;
+	case TQ: spec->qualifier = val; break;
+	}
+	
 	spec->next = 0;
 	return spec;
 }
 
 /** Process a declarator list and install the symbols into a symbol table */
 void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
-	char *specs = check_decl_specs(d);
-	
-	struct generic_node *scalar_node, *node;
+	char type_flags[TS_COUNT] = {0}, storage_flags[SC_COUNT] = {0}, qual_flags[TQ_COUNT] = {0};
+	char which, storage, qualifiers, *ret;
+	char ts, sc, tq;
+	struct generic_node *node, *type_node;
+	struct decl_spec *old_spec;
 	struct declarator *dec, *dec_old;
 	
-	if (specs[TS] >= 0 && specs[SC]>= 0) {
-		scalar_node = new_node(specs[TS]); 
+	// Go through the decl specs and check if it is a valid combination
+	while(d) {
+		if (d->type >= 0) {
+			if (d->type == TS_STRUCT || d->type == TS_TYPENAME)
+				node = d->node; 
+			type_flags[d->type]++; 
+		}
+		if (d->storage >= 0)
+			storage_flags[d->storage]++;
+		if (d->qualifier >= 0)
+			qual_flags[d->qualifier]++; 
 		
+		old_spec = d;
+		d = d->next;
+		free(old_spec);
+	}
+	ts = check_type_specs(type_flags);
+	sc = check_storage_classes(storage_flags);
+	tq = 0; // Ignore type qualifiers for now
+	
+	// If valid, complete the declaration and print the info
+	if (ts >= 0 && sc>= 0) {
+		if (ts == N_STRUCT || ts == N_TYPENAME)
+			type_node = node;
+		else
+			type_node = new_node(ts);
+			
 		for (dec = dl->leftmost; dec != 0; dec = dec->next, free(dec_old)) {
-			((struct ptr_node *)dec->top)->to = scalar_node;
-			((struct symbol *)dec->deepest)->storage = specs[SC];
+			((struct ptr_node *)dec->top)->to = type_node;
+			((struct symbol *)dec->deepest)->storage = sc;
 			
 			if (!add_sym((struct symbol *)dec->deepest,0))
 				print_node_info_r(dec->deepest);
 			dec_old = dec; // old declarator freed before next loop
 		}
 	}
-	free(specs);
 }
-
-// useless
-void add_declarators_to_table(struct declarator_list *dl, struct symtable *st) {
-	return;
-	struct declarator *dec, *dec_old;
-	for (dec = dl->leftmost; dec != 0; dec = dec->next, free(dec_old)) {
-		add_sym((struct symbol *)dec->deepest,st);
-		print_node_info_r(dec->deepest);
-		dec_old = dec; // old declarator freed before next loop
-	}
-}
-
-/** Process a declarator list and install the symbols into a symbol table */
-/*
-void new_decl(struct decl_spec *d, struct declarator_list *dl,
-	struct symtable *st) {
-	char *specs = check_decl_specs(d);
-	
-	struct generic_node *scalar_node, *node;
-	struct declarator *dec, *dec_old;
-	
-	if (specs[TS] >= 0 && specs[SC]>= 0) {
-		scalar_node = new_node(specs[TS]); 
-		
-		for (dec = dl->leftmost; dec != 0; dec = dec->next, free(dec_old)) {
-			((struct ptr_node *)dec->top)->to = scalar_node;
-			((struct symbol *)dec->deepest)->storage = specs[SC];
-			
-			add_sym((struct symbol *)dec->deepest,st); //should this be 0
-			print_node_info_r(dec->deepest);
-			dec_old = dec; // old declarator freed before next loop
-		}
-	}
-	free(specs);
-}*/
 
 /** Print information about a node and its linked nodes, recursively */
 void print_node_info_r(struct generic_node *node) {
@@ -129,10 +124,8 @@ void print_node_info(struct generic_node *node) {
 		case S_PROTO: printf("prototype"); break;
 		case S_STRUCT: printf("struct/union"); break;
 		}
-		printf(" scope starting at %s:%d] as a\n",n->scope->file,n->scope->line);
-		printf("variable ");
+		printf(" scope starting at %s:%d] as\n",n->scope->file,n->scope->line);
 		if (n->storage != SC_AUTO) {
-			putchar('(');
 			switch(n->storage)  {
 			case SC_TYPEDEF: printf("typedef"); break;
 			case SC_EXTERN: printf("extern"); break; 
@@ -140,9 +133,9 @@ void print_node_info(struct generic_node *node) {
 			case SC_REGISTER: printf("register"); break;
 			break;
 			}
-			printf(") ");
+			putchar(' ');
 		}
-		printf("of type");
+		printf("variable of type");
 	break;
 	case N_ARR:	printf("array of %d",((struct arr_node *)node)->size);	break;
 	case N_PTR: printf("pointer to");	break;
@@ -182,19 +175,25 @@ void print_node_info(struct generic_node *node) {
 /** Check declaration specifiers (type, storage, qualifiers).
 	If valid, return pointer to an array of three chars specifying the values 
 	for each declaration specifier */
+	/*
 char *check_decl_specs(struct decl_spec *spec) {
-	char type_flags[TS_COUNT] = {0}; 
-	char storage_flags[SC_COUNT] = {0};
-	char qual_flags[TQ_COUNT] = {0};
-	char type, storage, qualifiers;
-	char *ret;
+	char type_flags[TS_COUNT] = {0}, storage_flags[SC_COUNT] = {0}, qual_flags[TQ_COUNT] = {0};
+	char which, storage, qualifiers, *ret;
+	struct generic_node *node;
 	struct decl_spec *old_spec;
 	
 	while(spec) {
-		switch(spec->type) {
-		case TS: type_flags[spec->val]++; break;
-		case SC: storage_flags[spec->val]++; break;
-		case TQ: qual_flags[spec->val]++; break;
+		switch(spec->which) {
+		case TS: 
+			switch (spec->type) {
+			case TS_STRUCT: node = spec->node; break;
+			case TS_FUNC: node = spec->node; break;
+			case TS_TYPENAME: node = spec->node; break;
+			}
+			type_flags[spec->type]++; 
+			break;
+		case SC: storage_flags[spec->storage]++; break;
+		case TQ: qual_flags[spec->qualifier]++; break;
 		}
 		
 		old_spec = spec;
@@ -208,7 +207,7 @@ char *check_decl_specs(struct decl_spec *spec) {
 	ret[TQ] = 0; // Ignore type qualifiers for now
 	
 	return ret;
-}
+}*/
 
 /** Check validity of storage classes. If valid, return which storage class. */
 int check_storage_classes(char *sc) {

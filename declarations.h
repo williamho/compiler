@@ -24,9 +24,18 @@ enum type_quals {
 	TQ_CONST, TQ_RESTRICT, TQ_VOLATILE, TQ_COUNT
 };
 
+/*
 struct decl_spec {
 	char type; // type spec or storage class
 	char val; // for storage classes or scalar nodes
+	struct generic_node *node; // for structs, enums, typedefs
+	struct decl_spec *next; // next decl spec in the list
+};*/
+
+struct decl_spec {
+	char type;
+	char storage;
+	char qualifier;
 	struct generic_node *node; // for structs, enums, typedefs
 	struct decl_spec *next; // next decl spec in the list
 };
@@ -43,12 +52,11 @@ struct declarator_list {
 struct generic_node;
 struct decl_specs;
 struct symtable;
-struct decl_spec *new_spec(char type, char val);
+struct decl_spec *new_spec(char which, char val);
 struct declarator *new_declarator(struct generic_node *n);
 void new_declarator_list(struct declarator_list *dl, struct declarator *d);
 void add_declarator_list(struct declarator_list *to, struct declarator_list *from, struct declarator *d);
 void new_declaration(struct decl_spec *d, struct declarator_list *dl);
-void add_declarators_to_table(struct declarator_list *dl, struct symtable *st);
 void new_decl(struct decl_spec *d, struct declarator_list *dl, struct symtable *st);
 
 void print_node_info(struct generic_node *node);
