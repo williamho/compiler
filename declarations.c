@@ -106,7 +106,7 @@ void print_node_info_r(struct generic_node *node) {
 	for (i=0; i<depth; i++)
 		printf("   ");		
 	print_node_info((struct generic_node *)n);
-	putchar('\n');
+	printf("\n\n");
 }
 
 /** Print into about a node */

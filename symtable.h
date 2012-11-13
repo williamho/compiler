@@ -9,6 +9,10 @@ enum scope_types {
 	/* pseudo-scope: */ S_STRUCT
 };
 
+enum namespaces {
+	T_ELSE, T_STRUCT_TAG, T_LABEL, T_STRUCT_MEM
+};
+
 enum node_types {
 	N_VOID, N_CHAR, N_SHORT, N_INT, N_LONG, N_LONGLONG, 
 	N_UCHAR, N_USHORT, N_UINT, N_ULONG, N_ULONGLONG,
@@ -37,7 +41,8 @@ struct symtable {
 	char *file; \
 	int line; \
 	struct symtable *scope; \
-	struct symbol *chain
+	struct symbol *chain; \
+	char namespace
 	
 struct generic_node {
 	COMMON_NODE_ATTRIBUTES;

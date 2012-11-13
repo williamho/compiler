@@ -65,8 +65,8 @@ int add_sym(struct symbol *sym, struct symtable *table) {
 			cur_sym = cur_sym->chain;
 		
 		if (cur_sym) {
-			if (sym->nodetype == N_STRUCT && !((struct struct_tag *)sym)->complete)
-				return 0;
+			//if (sym->nodetype == N_STRUCT && !((struct struct_tag *)sym)->complete)
+				//return 0;
 			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
 			free_sym(sym);
 			return 1;
@@ -110,7 +110,6 @@ void free_sym(struct symbol *sym) {
 struct struct_tag *new_struct(char *struct_name) {
 	struct struct_tag *st = (struct struct_tag *)new_sym(struct_name,N_STRUCT);
 	
-	//printf("\nnew struct %s\n",st->id);
 	st->members = cur_symtable;
 	st->complete = 1;
 	cur_symtable = cur_symtable->prev;
@@ -118,44 +117,12 @@ struct struct_tag *new_struct(char *struct_name) {
 	// If not given a name, don't add it to the symbol table
 	if (!struct_name)
 		add_sym((struct symbol *)st,0);
+		
+	// should this be the place to put it? CHECK NAMESPACES.
+	add_sym((struct symbol *)st,0);
+		
 	return st;
 }
-
-/*
-struct symbol *new_sym(char *sname, struct symtable *table) {
-	unsigned long hashval = hash(sname);
-	struct symbol *cur_sym, **new_sym;
-	
-	if (!table)
-		table = cur_symtable;
-	
-	if (cur_sym = table->s[hashval]) { // collision
-		// Compare names of existing symbols with that hash value
-		while (cur_sym && strcmp(sname, cur_sym->id))
-			cur_sym = cur_sym->chain;
-				
-		if (cur_sym) {
-			yyerror("redefinition of '%s' previously declared at %s %d", sname, cur_sym->file, cur_sym->line);
-			return cur_sym; 
-		}
-		
-		cur_sym = table->s[hashval];
-	}
-	
-	new_sym = table->s + hashval;
-	*new_sym = malloc(sizeof(struct symbol));
-	
-	// Add symbol to symtable
-	(*new_sym)->nodetype = N_IDENT;
-	(*new_sym)->type = 0;
-	(*new_sym)->id = sname;
-	(*new_sym)->chain = cur_sym;
-	(*new_sym)->file = strdup(filename);
-	(*new_sym)->line = line_num;
-	(*new_sym)->scope = table;
-	
-	return *new_sym;
-}*/
 
 /** Create new symbol table upon entering a new scope */
 struct symtable *new_symtable(int stype) {
