@@ -60,6 +60,7 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 	if (!table)
 		table = cur_symtable;
 	
+	// Determmine the namespace based on the node type
 	switch(sym->nodetype) {
 	case N_VAR: 
 		new_sym = malloc(sizeof(struct symbol)); 
@@ -67,7 +68,7 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		break;
 	case N_STRUCT:
 		new_sym = calloc(1,sizeof(struct struct_tag)); 
-		sym->namespace = T_STRUCT_TAG;
+		cur_symtable = cur_symtable->prev;
 		break;
 	case N_STRUCT_MEM:
 		new_sym = calloc(1,sizeof(struct struct_member)); 
@@ -79,14 +80,16 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		break;
 	}
 	
+	printf("%s hashval: %lu\n",sym->id,hashval);//DEBUG
 	if (cur_sym = table->s[hashval]) { // collision
+		printf("cur_sym %p\n",cur_sym);//DEBUG
 		// Compare names of existing symbols with that hash value
 		while (cur_sym && !(sym->namespace == cur_sym->namespace && !strcmp(sym->id, cur_sym->id))) {
 			cur_sym = cur_sym->chain;
 		}
-		
+	
 		if (cur_sym) {
-			// handle incomplete struct tags
+			// TODO: handle incomplete struct tags
 			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
 			free_sym(sym);
 			free(new_sym);
@@ -96,18 +99,12 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		cur_sym = table->s[hashval];
 	}
 	
-	//sym->nodetype = N_VAR; //DEBUG
-	
+	sym->scope = table;
+	sym->chain = cur_sym;
 	memcpy(new_sym,sym,sizeof(struct symbol));
-	
-	//printf("%s %s:%d %p\n",new_sym->id,new_sym->file,new_sym->line,new_sym->type);
-	//print_node_info_r(new_sym->type);
-	
-	//*new_sym = *sym;
-	//new_sym->namespace = namespace;
-	new_sym->scope = table;
 	table->s[hashval] = new_sym;
-	//free(sym);
+	printf("%s table->s[%lu] = %p\n",new_sym->id,hashval,table->s[hashval]);//DEBUG
+	free(sym);
 	return new_sym;
 }
 
@@ -136,17 +133,16 @@ struct struct_tag *new_struct(char *struct_name) {
 	struct struct_tag *st = (struct struct_tag *)new_sym(struct_name);
 	st->nodetype = N_STRUCT;
 	
-	st->members = cur_symtable;
-	st->complete = 1;
-	cur_symtable = cur_symtable->prev;
-	
 	// If not given a name, don't add it to the symbol table
-	if (!struct_name && !add_sym((struct symbol *)st,0)) {
+	if (struct_name && !(st = (struct struct_tag *)add_sym((struct symbol *)st,cur_symtable->prev))) {
 		yyerror("redeclaration of struct %s",st->id); //debug
 		return 0;
 	}
-		
-	printf("------------\ntest\n----------\n"); //debug
+	st->members = cur_symtable;
+	st->complete = 1;
+	//cur_symtable = cur_symtable->prev;
+	
+	printf("------------\n%p test\n----------\n",st); //debug
 		
 	return st;
 }
