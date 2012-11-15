@@ -165,7 +165,11 @@ void print_node_info(struct generic_node *node) {
 	case N_CLONGDOUBLE: printf("complex long double"); break;
 	case N_BOOL: printf("bool"); break;
 	case N_STRUCT: 
-		printf("struct %s (defined at %s:%d)",n->id,n->file,n->line); 
+		printf("struct %s ",n->id); 
+		if (((struct struct_tag *)n)->complete)
+			printf("(defined at %s:%d)",n->file,n->line);
+		else
+			printf("(incomplete)");
 		break;
 	case N_UNION: printf("union"); break;
 	case N_ENUM: printf("enum"); break;

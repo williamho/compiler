@@ -64,19 +64,20 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 	switch(sym->nodetype) {
 	case N_VAR: 
 		new_sym = malloc(sizeof(struct symbol)); 
-		sym->namespace = T_OTHER;
+		sym->namespace = NS_OTHER;
 		break;
 	case N_STRUCT:
 		new_sym = calloc(1,sizeof(struct struct_tag)); 
 		cur_symtable = cur_symtable->prev;
+		sym->namespace = NS_STRUCT_TAG;
 		break;
 	case N_STRUCT_MEM:
 		new_sym = calloc(1,sizeof(struct struct_member)); 
-		sym->namespace = T_STRUCT_MEM;
+		sym->namespace = NS_STRUCT_MEM;
 		break;
 	case N_FUNC:
 		new_sym = calloc(1,sizeof(struct func)); 
-		sym->namespace = T_OTHER;
+		sym->namespace = NS_OTHER;
 		break;
 	}
 	
@@ -87,7 +88,10 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		}
 	
 		if (cur_sym) {
-			// TODO: handle incomplete struct tags
+			if (sym->nodetype == N_STRUCT && !((struct struct_tag *)cur_sym)->complete) {
+				((struct struct_tag *)cur_sym)->complete = 1;
+				memcpy(cur_sym,sym,sizeof(struct struct_tag));
+			}
 			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
 			free_sym(sym);
 			free(new_sym);
@@ -149,7 +153,7 @@ void free_sym(struct symbol *sym) {
 	free(sym);
 }
 
-struct struct_tag *new_struct(char *struct_name) {
+struct struct_tag *new_struct(char *struct_name, char complete) {
 	struct struct_tag *st = (struct struct_tag *)new_sym(struct_name);
 	st->nodetype = N_STRUCT;
 	
@@ -159,7 +163,9 @@ struct struct_tag *new_struct(char *struct_name) {
 		return 0;
 	
 	st->members = cur_symtable;
-	st->complete = 1;
+	st->file = cur_symtable->file;
+	st->line= cur_symtable->line;
+	st->complete = complete;
 		
 	return st;
 }

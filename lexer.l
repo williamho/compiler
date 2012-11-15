@@ -99,12 +99,12 @@ _Bool      { return _BOOL; }
 _Complex   { return _COMPLEX; }
 _Imaginary { return _IMAGINARY; }
 
-{ALPHA}[a-zA-Z0-9]*  { 
+{ALPHA}[a-zA-Z0-9_]*  { 
 	struct symbol *node;
 	yylval.sval = strdup(yytext); 
 	
 	// check if typedef
-	if ((node = get_sym(yylval.sval)) && node->nodetype == N_TYPEDEF)
+	if ((node = get_sym(yylval.sval,NS_OTHER,0)) && node->nodetype == N_TYPEDEF)
 		return TYPEDEF_NAME;
 			
 	return IDENT; 

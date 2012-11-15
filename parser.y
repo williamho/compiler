@@ -147,25 +147,37 @@ type_spec
 	;
 	
 struct_or_union_spec
-	:struct_or_union IDENT '{' { printf("struct %s declaration at %s:%d {\n", $2,filename,line_num); } struct_decl_list '}' {
-		printf("}\n");
-		$$ = new_spec(TS,TS_STRUCT);
-		$$->node = (struct generic_node *)new_struct($2);
+	:struct_or_union IDENT '{' { 
+			new_symtable(S_STRUCT);
+			printf("struct %s declaration at %s:%d {\n", $2,filename,line_num); 
+		} 
+		struct_decl_list '}' { 
+			$$ = new_spec(TS,TS_STRUCT);
+			$$->node = (struct generic_node *)new_struct($2,1);
+			printf("}\n");
 	}
-	|struct_or_union { printf("struct declaration at %s:%d {\n",filename,line_num); } '{' struct_decl_list '}' {
-		printf("}\n");
-		$$ = new_spec(TS,TS_STRUCT);
-		$$->node = (struct generic_node *)new_struct(0);
+	|struct_or_union { 
+		new_symtable(S_STRUCT);
+		printf("struct declaration at %s:%d {\n",filename,line_num); 
+		} 
+		'{' struct_decl_list '}' {
+			printf("}\n");
+			$$ = new_spec(TS,TS_STRUCT);
+			$$->node = (struct generic_node *)new_struct(0,1);
 	}
 	|struct_or_union IDENT {
-	// Check if struct/union exists. If not, incomplete declaration.
+		// Check if struct/union exists. If not, incomplete declaration.
 		$$ = new_spec(TS,TS_STRUCT);
-		$$->node = (struct generic_node *)new_sym($2);
+		$$->node = (struct generic_node *)get_sym($2,NS_STRUCT_TAG,0); 
+		
+		// If struct tag doesn't already exist, add it as incomplete
+		if (!$$->node)
+			$$->node = (struct generic_node *)new_struct($2,0);
 	}
 	;
 
 struct_or_union
-	:STRUCT { new_symtable(S_STRUCT); }
+	:STRUCT
 	|UNION { yywarn("unions not implemented"); }
 	;
 
@@ -185,7 +197,7 @@ spec_qual_list
 		$2->next = $1; // Add type_spec to linked list of specs
 		$$ = $2;
 	}
-	|type_spec
+	|type_spec 
 	|type_qual spec_qual_list { yywarn("type qualifiers not implemented"); }
 	|type_qual { yywarn("type qualifiers not implemented"); }
 	;

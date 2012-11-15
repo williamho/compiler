@@ -10,7 +10,7 @@ enum scope_types {
 };
 
 enum namespaces {
-	T_OTHER, T_STRUCT_TAG, T_LABEL, T_STRUCT_MEM
+	NS_OTHER, NS_STRUCT_TAG, NS_LABEL, NS_STRUCT_MEM
 };
 
 enum node_types {
@@ -97,6 +97,6 @@ void free_sym(struct symbol *sym);
 struct symbol *get_sym(char *sname, char nspace, struct symtable *table);
 struct generic_node *new_arr_node(int size);
 struct generic_node *new_ptr_node();
-struct struct_tag *new_struct(char *struct_name);
+struct struct_tag *new_struct(char *struct_name, char complete);
 
 #endif
