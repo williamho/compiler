@@ -61,12 +61,12 @@ int add_sym(struct symbol *sym, struct symtable *table) {
 	
 	if (cur_sym = table->s[hashval]) { // collision
 		// Compare names of existing symbols with that hash value
-		while (cur_sym && strcmp(sym->id, cur_sym->id))
+		while (cur_sym && !(sym->namespace == cur_sym->namespace && strcmp(sym->id, cur_sym->id))) {
 			cur_sym = cur_sym->chain;
+		}
 		
-		if (cur_sym) {
-			//if (sym->nodetype == N_STRUCT && !((struct struct_tag *)sym)->complete)
-				//return 0;
+		if (cur_sym && cur_sym->scope) {
+			// handle incomplete struct tags
 			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
 			free_sym(sym);
 			return 1;
@@ -85,9 +85,22 @@ int add_sym(struct symbol *sym, struct symtable *table) {
 struct symbol *new_sym(char *sname, char symtype) {
 	struct symbol *sym;
 	switch(symtype) {
-	case N_IDENT: sym = malloc(sizeof(struct symbol)); break;
-	case N_STRUCT: sym = calloc(1,sizeof(struct struct_tag)); break;
-	case N_FUNC: sym = calloc(1,sizeof(struct func)); break;
+	case N_VAR: 
+		sym = malloc(sizeof(struct symbol)); 
+		sym->namespace = T_OTHER;
+		break;
+	case N_STRUCT:
+		sym = calloc(1,sizeof(struct struct_tag)); 
+		sym->namespace = T_STRUCT_TAG;
+		break;
+	case N_STRUCT_MEM:
+		sym = calloc(1,sizeof(struct struct_member)); 
+		sym->namespace = T_STRUCT_MEM;
+		break;
+	case N_FUNC:
+		sym = calloc(1,sizeof(struct func)); 
+		sym->namespace = T_OTHER;
+		break;
 	}
 	
 	sym->nodetype = symtype;

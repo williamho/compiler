@@ -241,9 +241,7 @@ declarator
 	
 direct_declarator
 	:IDENT {
-		/* TODO: Fix this for structs. How to pass?? Or do we not want to 
-				install into symtable until the decl is processed? */
-		$$ = new_declarator((struct generic_node *)new_sym($1,N_IDENT));
+		$$ = new_declarator((struct generic_node *)new_sym($1,N_VAR));
 	}
 	|'(' declarator ')' { $$=$2; }
 	|direct_declarator '[' const_expr ']' {

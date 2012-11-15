@@ -10,7 +10,7 @@ enum scope_types {
 };
 
 enum namespaces {
-	T_ELSE, T_STRUCT_TAG, T_LABEL, T_STRUCT_MEM
+	T_OTHER, T_STRUCT_TAG, T_LABEL, T_STRUCT_MEM
 };
 
 enum node_types {
@@ -20,7 +20,7 @@ enum node_types {
 	N_BOOL, N_CFLOAT, N_CDOUBLE, N_CLONGDOUBLE,
 	N_STRUCT, N_UNION, N_ENUM, N_TYPEDEF, 
 	
-	N_PTR, N_ARR, N_FUNC, N_TYPENAME, N_IDENT
+	N_PTR, N_ARR, N_FUNC, N_TYPENAME, N_VAR, N_STRUCT_MEM
 };
 
 struct symtable {
@@ -51,6 +51,13 @@ struct generic_node {
 struct symbol {
 	COMMON_SYMBOL_ATTRIBUTES;
 	char storage;
+};
+
+struct struct_member {
+	COMMON_SYMBOL_ATTRIBUTES;
+	int offset;
+	int bit_offset;
+	int size;
 };
 
 struct struct_tag {

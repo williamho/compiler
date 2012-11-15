@@ -93,7 +93,7 @@ void print_node_info_r(struct generic_node *node) {
 	int i, depth = 0;
 	
 	while (n->nodetype == N_ARR || n->nodetype == N_PTR || 
-			n->nodetype == N_IDENT) {	
+			n->nodetype == N_VAR) {	
 		for (i=0; i<depth; i++)
 			printf("   ");
 		depth++;
@@ -113,7 +113,7 @@ void print_node_info_r(struct generic_node *node) {
 void print_node_info(struct generic_node *node) {
 	struct symbol *n = (struct symbol *)node;
 	switch(node->nodetype) {
-	case N_IDENT:
+	case N_VAR:
 		printf("'%s' declared at %s:%d ",n->id,n->file,n->line);
 		
 		putchar('[');

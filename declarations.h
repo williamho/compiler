@@ -24,14 +24,6 @@ enum type_quals {
 	TQ_CONST, TQ_RESTRICT, TQ_VOLATILE, TQ_COUNT
 };
 
-/*
-struct decl_spec {
-	char type; // type spec or storage class
-	char val; // for storage classes or scalar nodes
-	struct generic_node *node; // for structs, enums, typedefs
-	struct decl_spec *next; // next decl spec in the list
-};*/
-
 struct decl_spec {
 	char type;
 	char storage;
