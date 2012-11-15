@@ -48,6 +48,7 @@ void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
 	struct generic_node *node, *type_node;
 	struct decl_spec *old_spec;
 	struct declarator *dec, *dec_old;
+	struct symbol *sym;
 	
 	// Go through the decl specs and check if it is a valid combination
 	while(d) {
@@ -80,8 +81,8 @@ void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
 			((struct ptr_node *)dec->top)->to = type_node;
 			((struct symbol *)dec->deepest)->storage = sc;
 			
-			if (!add_sym((struct symbol *)dec->deepest,0))
-				print_node_info_r(dec->deepest);
+			if (sym = add_sym((struct symbol *)dec->deepest,0))
+				print_node_info_r((struct generic_node *)sym);
 			dec_old = dec; // old declarator freed before next loop
 		}
 	}
@@ -93,7 +94,7 @@ void print_node_info_r(struct generic_node *node) {
 	int i, depth = 0;
 	
 	while (n->nodetype == N_ARR || n->nodetype == N_PTR || 
-			n->nodetype == N_VAR) {	
+			n->nodetype == N_VAR || n->nodetype == N_STRUCT_MEM) {	
 		for (i=0; i<depth; i++)
 			printf("   ");
 		depth++;
@@ -114,8 +115,9 @@ void print_node_info(struct generic_node *node) {
 	struct symbol *n = (struct symbol *)node;
 	switch(node->nodetype) {
 	case N_VAR:
+	case N_STRUCT_MEM:
 		printf("'%s' declared at %s:%d ",n->id,n->file,n->line);
-		
+
 		putchar('[');
 		switch(n->scope->scope_type) {
 		case S_FILE: printf("file"); break;
@@ -124,6 +126,7 @@ void print_node_info(struct generic_node *node) {
 		case S_PROTO: printf("prototype"); break;
 		case S_STRUCT: printf("struct/union"); break;
 		}
+		
 		printf(" scope starting at %s:%d] as\n",n->scope->file,n->scope->line);
 		if (n->storage != SC_AUTO) {
 			switch(n->storage)  {
@@ -136,7 +139,7 @@ void print_node_info(struct generic_node *node) {
 			putchar(' ');
 		}
 		printf("variable of type");
-	break;
+		break;
 	case N_ARR:	printf("array of %d",((struct arr_node *)node)->size);	break;
 	case N_PTR: printf("pointer to");	break;
 	case N_VOID: printf("void"); break;

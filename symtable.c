@@ -52,9 +52,10 @@ struct generic_node *new_node(int ntype) {
 }
 
 /** Add symbol to symbol table */
-int add_sym(struct symbol *sym, struct symtable *table) {
+struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 	unsigned long hashval = hash(sym->id);
-	struct symbol *cur_sym;
+	struct symbol *new_sym, *cur_sym;
+	char namespace;
 	
 	if (!table)
 		table = cur_symtable;
@@ -69,41 +70,51 @@ int add_sym(struct symbol *sym, struct symtable *table) {
 			// handle incomplete struct tags
 			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
 			free_sym(sym);
-			return 1;
+			return 0;
 		}
 		
 		cur_sym = table->s[hashval];
 	}
 	
-	table->s[hashval] = sym;
-	sym->chain = cur_sym;
-	sym->scope = table;
-	return 0;
-}
-
-/** Create new symbol (not installed in any symbol table) */
-struct symbol *new_sym(char *sname, char symtype) {
-	struct symbol *sym;
-	switch(symtype) {
+	//sym->nodetype = N_VAR; //DEBUG
+	
+	switch(sym->nodetype) {
 	case N_VAR: 
-		sym = malloc(sizeof(struct symbol)); 
-		sym->namespace = T_OTHER;
+		new_sym = malloc(sizeof(struct symbol)); 
+		namespace = T_OTHER;
 		break;
 	case N_STRUCT:
-		sym = calloc(1,sizeof(struct struct_tag)); 
-		sym->namespace = T_STRUCT_TAG;
+		new_sym = calloc(1,sizeof(struct struct_tag)); 
+		namespace = T_STRUCT_TAG;
 		break;
 	case N_STRUCT_MEM:
-		sym = calloc(1,sizeof(struct struct_member)); 
-		sym->namespace = T_STRUCT_MEM;
+		new_sym = calloc(1,sizeof(struct struct_member)); 
+		namespace = T_STRUCT_MEM;
 		break;
 	case N_FUNC:
-		sym = calloc(1,sizeof(struct func)); 
-		sym->namespace = T_OTHER;
+		new_sym = calloc(1,sizeof(struct func)); 
+		namespace = T_OTHER;
 		break;
 	}
 	
-	sym->nodetype = symtype;
+	memcpy(new_sym,sym,sizeof(struct symbol));
+	
+	//printf("%s %s:%d %p\n",new_sym->id,new_sym->file,new_sym->line,new_sym->type);
+	//print_node_info_r(new_sym->type);
+	
+	//*new_sym = *sym;
+	new_sym->namespace = namespace;
+	new_sym->scope = table;
+	table->s[hashval] = new_sym;
+	//free(sym);
+	return new_sym;
+}
+
+/** Create new symbol (not installed in any symbol table) */
+struct symbol *new_sym(char *sname) {
+	struct symbol *sym = malloc(sizeof(struct symbol));
+	
+	sym->nodetype = -1; // Don't know the type yet
 	sym->id = sname;
 	sym->file = strdup(filename);
 	sym->line = line_num;
@@ -121,18 +132,16 @@ void free_sym(struct symbol *sym) {
 }
 
 struct struct_tag *new_struct(char *struct_name) {
-	struct struct_tag *st = (struct struct_tag *)new_sym(struct_name,N_STRUCT);
+	struct struct_tag *st = (struct struct_tag *)new_sym(struct_name);
+	st->nodetype = N_STRUCT;
 	
 	st->members = cur_symtable;
 	st->complete = 1;
 	cur_symtable = cur_symtable->prev;
 	
 	// If not given a name, don't add it to the symbol table
-	if (!struct_name)
-		add_sym((struct symbol *)st,0);
-		
-	// should this be the place to put it? CHECK NAMESPACES.
-	add_sym((struct symbol *)st,0);
+	if (!struct_name && !add_sym((struct symbol *)st,0))
+		yyerror("redeclaration of struct %s",st->id);
 		
 	return st;
 }

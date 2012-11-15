@@ -117,7 +117,7 @@ init_declarator_list
 	;
 
 init_declarator
-	:declarator
+	:declarator { $1->deepest->nodetype = N_VAR; $$ = $1; }
 	|declarator '=' initializer // Not implemented
 	;
 
@@ -160,7 +160,7 @@ struct_or_union_spec
 	|struct_or_union IDENT {
 	// Check if struct/union exists. If not, incomplete declaration.
 		$$ = new_spec(TS,TS_STRUCT);
-		$$->node = (struct generic_node *)new_sym($2,N_STRUCT);
+		$$->node = (struct generic_node *)new_sym($2);
 	}
 	;
 
@@ -201,7 +201,7 @@ struct_declarator_list
 	;
 
 struct_declarator
-	:declarator
+	:declarator { $1->deepest->nodetype = N_STRUCT_MEM; $$ = $1; }
 	|':' const_expr { yywarn("bit fields not implemented"); }
 	|declarator ':' const_expr { yywarn("bit fields not implemented"); }
 	;
@@ -241,7 +241,7 @@ declarator
 	
 direct_declarator
 	:IDENT {
-		$$ = new_declarator((struct generic_node *)new_sym($1,N_VAR));
+		$$ = new_declarator((struct generic_node *)new_sym($1));
 	}
 	|'(' declarator ')' { $$=$2; }
 	|direct_declarator '[' const_expr ']' {
