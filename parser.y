@@ -171,8 +171,10 @@ struct_or_union_spec
 		$$->node = (struct generic_node *)get_sym($2,NS_STRUCT_TAG,0); 
 		
 		// If struct tag doesn't already exist, add it as incomplete
-		if (!$$->node)
+		if (!$$->node) {
+			new_symtable(S_STRUCT);
 			$$->node = (struct generic_node *)new_struct($2,0);
+		}
 	}
 	;
 

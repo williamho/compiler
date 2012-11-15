@@ -50,11 +50,8 @@ FLOATSUFFIX [fFlL]
 		sscanf(yytext+1,"%s",filename); 
 		
 		// Create new symbol table with file scope
-		/*
-		if (cur_symtable)
-			remove_symtable();
-		*/
-		new_symtable(S_FILE);
+		cur_symtable = new_file(filename);
+		//new_symtable(S_FILE);
 		BEGIN(FLAGS); 
 	}
 	.      { }

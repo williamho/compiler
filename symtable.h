@@ -23,12 +23,18 @@ enum node_types {
 	N_PTR, N_ARR, N_FUNC, N_TYPENAME, N_VAR, N_STRUCT_MEM
 };
 
+// symtable_map maps file names to file-scope symbol tables
+struct symtable_map {
+	struct symtable *st[TABLE_LENGTH];
+};
+
 struct symtable {
 	int scope_type;
 	char *file;
 	int line;
 	struct symbol *s[TABLE_LENGTH];
 	struct symtable *prev; // symbol table one level up
+	struct symtable *chain; // if file scope, next symbol table with same hashed file name
 };
 
 #define COMMON_NODE_ATTRIBUTES \
@@ -87,6 +93,7 @@ struct arr_node {
 	int size;
 };
 
+struct symtable *new_file(char *fname);
 struct symtable *new_symtable(int stype);
 int remove_symtable();
 unsigned long hash(unsigned char *str);

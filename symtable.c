@@ -5,6 +5,25 @@
 #include "file_info.h"
 
 struct symtable *cur_symtable;
+struct symtable_map symtable_map;
+
+struct symtable *new_file(char *fname) {
+	unsigned long hashval = hash(fname);
+	struct symtable *table, *new_table;
+	
+	if (table = symtable_map.st[hashval]) { // hashval collision
+		while (table && strcmp(fname,table->file))
+			table = table->chain;
+		if (table) 
+			return table;
+	}
+	
+	table = symtable_map.st[hashval];
+	new_table = new_symtable(S_FILE);
+	new_table->chain = table;
+	symtable_map.st[hashval] = new_table;
+	return new_table;
+}
 
 struct generic_node *new_arr_node(int size) {
 	struct arr_node *node = (struct arr_node *) new_node(N_ARR);
@@ -55,7 +74,8 @@ struct generic_node *new_node(int ntype) {
 struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 	unsigned long hashval = hash(sym->id);
 	struct symbol *new_sym, *cur_sym;
-	char namespace;
+	char namespace, *file;
+	int line;
 	
 	if (!table)
 		table = cur_symtable;
@@ -68,6 +88,8 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		break;
 	case N_STRUCT:
 		new_sym = calloc(1,sizeof(struct struct_tag)); 
+		file = cur_symtable->file;
+		line = cur_symtable->line;
 		cur_symtable = cur_symtable->prev;
 		sym->namespace = NS_STRUCT_TAG;
 		break;
@@ -81,17 +103,31 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		break;
 	}
 	
-	if (cur_sym = table->s[hashval]) { // collision
+	if (cur_sym = table->s[hashval]) { // hashval collision
 		// Compare names of existing symbols with that hash value
 		while (cur_sym && !(sym->namespace == cur_sym->namespace && !strcmp(sym->id, cur_sym->id))) {
 			cur_sym = cur_sym->chain;
 		}
 	
 		if (cur_sym) {
+			// If the symbol being added is a struct tag and has the same name as an incomplete struct tag
 			if (sym->nodetype == N_STRUCT && !((struct struct_tag *)cur_sym)->complete) {
-				((struct struct_tag *)cur_sym)->complete = 1;
+				// If the struct tag being added is also incomplete
+				if (!((struct struct_tag *)sym)->complete) {
+					free_sym(sym);
+					return cur_sym;
+				}
+				
+				// Replacing an incomplete struct tag with a complete one
 				memcpy(cur_sym,sym,sizeof(struct struct_tag));
+				((struct struct_tag *)cur_sym)->complete = 1;
+				cur_sym->line = line;
+				cur_sym->file = file;
+				free_sym(sym);
+				return cur_sym;
 			}
+			
+			// Redeclaration
 			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
 			free_sym(sym);
 			free(new_sym);
@@ -158,9 +194,11 @@ struct struct_tag *new_struct(char *struct_name, char complete) {
 	st->nodetype = N_STRUCT;
 	
 	// If not given a name, don't add it to the symbol table
-	// Also if struct tag already exists, return 0
-	if (struct_name && !(st = (struct struct_tag *)add_sym((struct symbol *)st,cur_symtable->prev))) 
+	// Also if a completed struct tag already exists, return 0
+	if (struct_name && !(st = (struct struct_tag *)add_sym((struct symbol *)st,cur_symtable->prev))) {
+		free_sym((struct symbol *)st);
 		return 0;
+	}
 	
 	st->members = cur_symtable;
 	st->file = cur_symtable->file;
