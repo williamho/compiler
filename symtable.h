@@ -94,14 +94,9 @@ struct generic_node *new_node(int ntype);
 struct symbol *new_sym(char *sname);
 struct symbol *add_sym(struct symbol *sym, struct symtable *table);
 void free_sym(struct symbol *sym);
-struct symbol *get_sym(char *sname);
+struct symbol *get_sym(char *sname, char nspace, struct symtable *table);
 struct generic_node *new_arr_node(int size);
 struct generic_node *new_ptr_node();
 struct struct_tag *new_struct(char *struct_name);
 
-/*
-long long get_sym_p(struct symbol *sym);
-int set_sym(char *sname, long long sval);
-int set_sym_p(struct symbol *sym, long long sval);
-*/
 #endif

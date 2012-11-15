@@ -80,9 +80,7 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		break;
 	}
 	
-	printf("%s hashval: %lu\n",sym->id,hashval);//DEBUG
 	if (cur_sym = table->s[hashval]) { // collision
-		printf("cur_sym %p\n",cur_sym);//DEBUG
 		// Compare names of existing symbols with that hash value
 		while (cur_sym && !(sym->namespace == cur_sym->namespace && !strcmp(sym->id, cur_sym->id))) {
 			cur_sym = cur_sym->chain;
@@ -103,9 +101,31 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 	sym->chain = cur_sym;
 	memcpy(new_sym,sym,sizeof(struct symbol));
 	table->s[hashval] = new_sym;
-	printf("%s table->s[%lu] = %p\n",new_sym->id,hashval,table->s[hashval]);//DEBUG
 	free(sym);
 	return new_sym;
+}
+
+/** Return address of symbol with specified name and namespace in the specified symbol table */
+struct symbol *get_sym(char *sname, char nspace, struct symtable *table) {
+	unsigned long hashval = hash(sname);
+	struct symbol *sym;
+	char tableflag = 0;
+	
+	if (!table) {
+		table = cur_symtable;
+		tableflag = 1; // Check in upper symbol tables also
+	}
+	
+	do {
+		if (sym = table->s[hashval])
+			while (sym && !(nspace == sym->namespace && !strcmp(sname, sym->id)))
+				sym = sym->chain;
+				
+		if (sym)
+			return sym;
+		else
+			table = table->prev;
+	} while (tableflag && table);
 }
 
 /** Create new symbol (not installed in any symbol table) */
@@ -134,15 +154,12 @@ struct struct_tag *new_struct(char *struct_name) {
 	st->nodetype = N_STRUCT;
 	
 	// If not given a name, don't add it to the symbol table
-	if (struct_name && !(st = (struct struct_tag *)add_sym((struct symbol *)st,cur_symtable->prev))) {
-		yyerror("redeclaration of struct %s",st->id); //debug
+	// Also if struct tag already exists, return 0
+	if (struct_name && !(st = (struct struct_tag *)add_sym((struct symbol *)st,cur_symtable->prev))) 
 		return 0;
-	}
+	
 	st->members = cur_symtable;
 	st->complete = 1;
-	//cur_symtable = cur_symtable->prev;
-	
-	printf("------------\n%p test\n----------\n",st); //debug
 		
 	return st;
 }
@@ -187,7 +204,7 @@ unsigned long hash(unsigned char *str) {
 	return hash % TABLE_LENGTH;
 }
 
-/** Get pointer to symbol with identifier sname */
+/** Get pointer to symbol with identifier sname 
 struct symbol *get_sym(char *sname) {
 	unsigned long hashval = hash(sname);
 	struct symbol *sym_ptr;
@@ -205,34 +222,4 @@ struct symbol *get_sym(char *sname) {
 	}
 	
 	return 0;
-}
-
-/*
-CURRENTLY UNUSED
-
-int set_sym(char *sname, long long sval) {
-	struct symbol *sym = get_sym(sname);
-	if (sym) {
-		sym->ival = sval;
-		return 0;
-	}
-	
-	// later, modify to handle type mismatches
-	return 1; //symbol doesn't exist
-}
-
-int set_sym_p(struct symbol *sym, long long sval) {
-	if (sym) {
-		sym->ival = sval;
-		return 0;
-	}
-	return 1;
-}
-
-long long get_sym_p(struct symbol *sym) {
-	if (sym) 
-		return sym->ival;
-	yyerror("symbol undefined");
-}
-
-*/
+}*/

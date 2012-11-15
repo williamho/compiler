@@ -81,8 +81,12 @@ void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
 			((struct ptr_node *)dec->top)->to = type_node;
 			((struct symbol *)dec->deepest)->storage = sc;
 			
-			if (sym = add_sym((struct symbol *)dec->deepest,0))
-				print_node_info_r((struct generic_node *)sym);
+			if (sym = add_sym((struct symbol *)dec->deepest,0)) {
+				if (!type_node)
+					yyerror("'%s' declared as invalid type",sym->id);
+				else
+					print_node_info_r((struct generic_node *)sym);
+			}
 			dec_old = dec; // old declarator freed before next loop
 		}
 	}
