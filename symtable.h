@@ -61,6 +61,7 @@ struct symbol {
 
 struct struct_member {
 	COMMON_SYMBOL_ATTRIBUTES;
+	struct struct_tag *parent;
 	int offset;
 	int bit_offset;
 	int size;

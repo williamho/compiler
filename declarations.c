@@ -77,6 +77,10 @@ void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
 		else
 			type_node = new_node(ts);
 			
+		if (sc == SC_TYPEDEF) {
+			// handle typedefs
+		}	
+			
 		for (dec = dl->leftmost; dec != 0; dec = dec->next, free(dec_old)) {
 			((struct ptr_node *)dec->top)->to = type_node;
 			((struct symbol *)dec->deepest)->storage = sc;
@@ -121,7 +125,7 @@ void print_node_info(struct generic_node *node) {
 	case N_VAR:
 	case N_STRUCT_MEM:
 		printf("'%s' declared at %s:%d ",n->id,n->file,n->line);
-
+		
 		putchar('[');
 		switch(n->scope->scope_type) {
 		case S_FILE: printf("file"); break;
@@ -131,7 +135,7 @@ void print_node_info(struct generic_node *node) {
 		case S_STRUCT: printf("struct/union"); break;
 		}
 		
-		printf(" scope starting at %s:%d] as\n",n->scope->file,n->scope->line);
+		printf(" scope @ %s:%d] as\n",n->scope->file,n->scope->line);
 		if (n->storage != SC_AUTO) {
 			switch(n->storage)  {
 			case SC_TYPEDEF: printf("typedef"); break;
@@ -142,7 +146,11 @@ void print_node_info(struct generic_node *node) {
 			}
 			putchar(' ');
 		}
-		printf("variable of type");
+		
+		if (node->nodetype == N_STRUCT_MEM)
+			printf("struct member of type");
+		else
+			printf("variable of type");
 		break;
 	case N_ARR:	printf("array of %d",((struct arr_node *)node)->size);	break;
 	case N_PTR: printf("pointer to");	break;

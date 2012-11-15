@@ -147,11 +147,11 @@ type_spec
 	;
 	
 struct_or_union_spec
-	:struct_or_union IDENT '{' { 
+	:struct_or_union IDENT { 
 			new_symtable(S_STRUCT);
 			printf("struct %s declaration at %s:%d {\n", $2,filename,line_num); 
 		} 
-		struct_decl_list '}' { 
+		'{' struct_decl_list '}' { 
 			$$ = new_spec(TS,TS_STRUCT);
 			$$->node = (struct generic_node *)new_struct($2,1);
 			printf("}\n");

@@ -137,6 +137,11 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		cur_sym = table->s[hashval];
 	}
 	
+	// Change the file/line declaration info for structs to the beginning of the declaration
+	if (sym->nodetype == N_STRUCT) {
+		sym->line = line;
+		sym->file = file;
+	}
 	sym->scope = table;
 	sym->chain = cur_sym;
 	memcpy(new_sym,sym,sizeof(struct symbol));
