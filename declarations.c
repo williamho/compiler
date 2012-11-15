@@ -169,7 +169,7 @@ void print_node_info(struct generic_node *node) {
 		if (((struct struct_tag *)n)->complete)
 			printf("(defined at %s:%d)",n->file,n->line);
 		else
-			printf("(incomplete)");
+			printf("(incomplete)"); 
 		break;
 	case N_UNION: printf("union"); break;
 	case N_ENUM: printf("enum"); break;

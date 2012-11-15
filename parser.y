@@ -156,19 +156,19 @@ struct_or_union_spec
 			$$->node = (struct generic_node *)new_struct($2,1);
 			printf("}\n");
 	}
-	|struct_or_union { 
+	|struct_or_union {  // unnamed struct
 		new_symtable(S_STRUCT);
 		printf("struct declaration at %s:%d {\n",filename,line_num); 
 		} 
 		'{' struct_decl_list '}' {
-			printf("}\n");
 			$$ = new_spec(TS,TS_STRUCT);
 			$$->node = (struct generic_node *)new_struct(0,1);
+			printf("}\n");
 	}
 	|struct_or_union IDENT {
 		// Check if struct/union exists. If not, incomplete declaration.
 		$$ = new_spec(TS,TS_STRUCT);
-		$$->node = (struct generic_node *)get_sym($2,NS_STRUCT_TAG,0); 
+		$$->node = (struct generic_node *)get_sym($2,NS_STRUCT_TAG,0);
 		
 		// If struct tag doesn't already exist, add it as incomplete
 		if (!$$->node) {
@@ -506,7 +506,13 @@ labeled_stmt
 
 compound_stmt
 	:'{' '}'
-	|'{' decl_or_stmt_list '}'
+	|'{' { 
+		// If compound statement encountered in file scope, it must be a function
+		if (cur_symtable->scope_type == S_FILE)
+			new_symtable(S_FUNC); 
+		else
+			new_symtable(S_BLOCK); 
+	} decl_or_stmt_list '}' { remove_symtable(); }
 	;
 
 decl_or_stmt_list

@@ -71,7 +71,7 @@ struct generic_node *new_node(int ntype) {
 }
 
 /** Add symbol to symbol table */
-struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
+struct symbol *add_sym(struct symbol *sym, struct symtable *table) {	
 	unsigned long hashval = hash(sym->id);
 	struct symbol *new_sym, *cur_sym;
 	char namespace, *file;
@@ -108,7 +108,7 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		while (cur_sym && !(sym->namespace == cur_sym->namespace && !strcmp(sym->id, cur_sym->id))) {
 			cur_sym = cur_sym->chain;
 		}
-	
+				
 		if (cur_sym) {
 			// If the symbol being added is a struct tag and has the same name as an incomplete struct tag
 			if (sym->nodetype == N_STRUCT && !((struct struct_tag *)cur_sym)->complete) {
@@ -156,16 +156,18 @@ struct symbol *get_sym(char *sname, char nspace, struct symtable *table) {
 		tableflag = 1; // Check in upper symbol tables also
 	}
 	
+	// If tableflag is set, check in current symbol table and all parent tables
 	do {
 		if (sym = table->s[hashval])
 			while (sym && !(nspace == sym->namespace && !strcmp(sname, sym->id)))
 				sym = sym->chain;
 				
-		if (sym)
+		if (sym) 
 			return sym;
 		else
 			table = table->prev;
 	} while (tableflag && table);
+	return 0;
 }
 
 /** Create new symbol (not installed in any symbol table) */
@@ -196,15 +198,12 @@ struct struct_tag *new_struct(char *struct_name, char complete) {
 	// If not given a name, don't add it to the symbol table
 	// Also if a completed struct tag already exists, return 0
 	if (struct_name && !(st = (struct struct_tag *)add_sym((struct symbol *)st,cur_symtable->prev))) {
-		free_sym((struct symbol *)st);
+		free(st);
 		return 0;
 	}
 	
 	st->members = cur_symtable;
-	st->file = cur_symtable->file;
-	st->line= cur_symtable->line;
 	st->complete = complete;
-		
 	return st;
 }
 
