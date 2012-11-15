@@ -60,16 +60,36 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 	if (!table)
 		table = cur_symtable;
 	
+	switch(sym->nodetype) {
+	case N_VAR: 
+		new_sym = malloc(sizeof(struct symbol)); 
+		sym->namespace = T_OTHER;
+		break;
+	case N_STRUCT:
+		new_sym = calloc(1,sizeof(struct struct_tag)); 
+		sym->namespace = T_STRUCT_TAG;
+		break;
+	case N_STRUCT_MEM:
+		new_sym = calloc(1,sizeof(struct struct_member)); 
+		sym->namespace = T_STRUCT_MEM;
+		break;
+	case N_FUNC:
+		new_sym = calloc(1,sizeof(struct func)); 
+		sym->namespace = T_OTHER;
+		break;
+	}
+	
 	if (cur_sym = table->s[hashval]) { // collision
 		// Compare names of existing symbols with that hash value
-		while (cur_sym && !(sym->namespace == cur_sym->namespace && strcmp(sym->id, cur_sym->id))) {
+		while (cur_sym && !(sym->namespace == cur_sym->namespace && !strcmp(sym->id, cur_sym->id))) {
 			cur_sym = cur_sym->chain;
 		}
 		
-		if (cur_sym && cur_sym->scope) {
+		if (cur_sym) {
 			// handle incomplete struct tags
 			yyerror("redefinition of '%s' previously declared at %s %d", sym->id, cur_sym->file, cur_sym->line);
 			free_sym(sym);
+			free(new_sym);
 			return 0;
 		}
 		
@@ -78,32 +98,13 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 	
 	//sym->nodetype = N_VAR; //DEBUG
 	
-	switch(sym->nodetype) {
-	case N_VAR: 
-		new_sym = malloc(sizeof(struct symbol)); 
-		namespace = T_OTHER;
-		break;
-	case N_STRUCT:
-		new_sym = calloc(1,sizeof(struct struct_tag)); 
-		namespace = T_STRUCT_TAG;
-		break;
-	case N_STRUCT_MEM:
-		new_sym = calloc(1,sizeof(struct struct_member)); 
-		namespace = T_STRUCT_MEM;
-		break;
-	case N_FUNC:
-		new_sym = calloc(1,sizeof(struct func)); 
-		namespace = T_OTHER;
-		break;
-	}
-	
 	memcpy(new_sym,sym,sizeof(struct symbol));
 	
 	//printf("%s %s:%d %p\n",new_sym->id,new_sym->file,new_sym->line,new_sym->type);
 	//print_node_info_r(new_sym->type);
 	
 	//*new_sym = *sym;
-	new_sym->namespace = namespace;
+	//new_sym->namespace = namespace;
 	new_sym->scope = table;
 	table->s[hashval] = new_sym;
 	//free(sym);
@@ -140,8 +141,12 @@ struct struct_tag *new_struct(char *struct_name) {
 	cur_symtable = cur_symtable->prev;
 	
 	// If not given a name, don't add it to the symbol table
-	if (!struct_name && !add_sym((struct symbol *)st,0))
-		yyerror("redeclaration of struct %s",st->id);
+	if (!struct_name && !add_sym((struct symbol *)st,0)) {
+		yyerror("redeclaration of struct %s",st->id); //debug
+		return 0;
+	}
+		
+	printf("------------\ntest\n----------\n"); //debug
 		
 	return st;
 }
