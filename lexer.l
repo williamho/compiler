@@ -101,8 +101,9 @@ _Imaginary { return _IMAGINARY; }
 	yylval.sval = strdup(yytext); 
 	
 	// check if typedef
-	if ((node = get_sym(yylval.sval,NS_OTHER,0)) && node->nodetype == N_TYPEDEF)
+	if ((node = get_sym(yylval.sval,NS_OTHER,0)) && node->storage == SC_TYPEDEF) {
 		return TYPEDEF_NAME;
+	}
 			
 	return IDENT; 
 }

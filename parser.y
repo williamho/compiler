@@ -42,7 +42,7 @@ int cur_scope;
 }
 
 %token <cval> CHARLIT
-%token <sval> STRING IDENT TYPENAME
+%token <sval> STRING IDENT TYPEDEF_NAME
 %token <num> NUMBER 
 
 %type <specs> decl_specs decl_spec type_spec storage_class_spec type_qual spec_qual_list struct_or_union_spec
@@ -54,7 +54,7 @@ int cur_scope;
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
 %token LOGAND LOGOR TIMESEQ DIVEQ MODEQ PLUSEQ
 %token MINUSEQ SHLEQ SHREQ ANDEQ
-%token XOREQ OREQ TYPEDEF_NAME
+%token XOREQ OREQ
 
 %token TYPEDEF EXTERN STATIC AUTO REGISTER CONST VOLATILE RESTRICT 
 %token CHAR SHORT INT LONG SIGNED UNSIGNED FLOAT DOUBLE VOID
@@ -81,10 +81,10 @@ external_decl
 	;
 
 function_definition
-	:decl_specs declarator decl_list compound_stmt // K&R
-	|decl_specs declarator compound_stmt
+	:decl_specs declarator compound_stmt
+	//|decl_specs declarator decl_list compound_stmt // K&R
 	|declarator decl_list compound_stmt
-	|declarator compound_stmt
+	|declarator compound_stmt // return type int
 	;
 
 /* +==============+
@@ -149,7 +149,7 @@ type_spec
 	|_COMPLEX { $$ = new_spec(TS,TS_COMPLEX); }
 	|struct_or_union_spec { $$ = $1; }
 	|enum_spec { $$ = new_spec(TS,TS_ENUM); }
-	|TYPEDEF_NAME { $$ = new_spec(TS,TS_TYPENAME); }
+	|TYPEDEF_NAME { $$ = new_typename_spec($1); }
 	;
 	
 struct_or_union_spec
@@ -276,8 +276,11 @@ direct_declarator
 	
 	// functions
 	|direct_declarator '(' param_type_list ')' { 
-		$1->top->nodetype = N_FUNC; 
-		$$ = $1; 
+		$$ = $1;
+		add_declarator($$,new_func_node());
+		
+		/*$1->top->nodetype = N_FUNC; 
+		$$ = $1; */
 	}
 	|direct_declarator '(' ident_list ')' {
 		$1->top->nodetype = N_FUNC; 
@@ -322,7 +325,7 @@ param_decl
 		new_declarator_list(dl,$2);
 		new_declaration($1,dl);
 	}
-	|decl_specs abstract_declarator
+	//|decl_specs abstract_declarator
 	//|decl_specs // prototypes
 	;
 

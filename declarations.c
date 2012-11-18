@@ -45,6 +45,15 @@ struct decl_spec *new_spec(char which, char val) {
 	return spec;
 }
 
+struct decl_spec *new_typename_spec(char *typename) {
+	struct decl_spec *spec = malloc(sizeof (struct decl_spec));
+	spec->node = ((struct typedef_node *)get_sym(typename,NS_OTHER,0))->type;
+	spec->type = TS_TYPENAME;
+	spec->storage = spec->qualifier = -1;
+	spec->next = 0;
+	return spec;
+}
+
 /** Process a declarator list and install the symbols into a symbol table */
 void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
 	char type_flags[TS_COUNT] = {0}, storage_flags[SC_COUNT] = {0}, qual_flags[TQ_COUNT] = {0};
@@ -81,10 +90,6 @@ void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
 			type_node = node;
 		else
 			type_node = new_node(ts);
-			
-		if (sc == SC_TYPEDEF) {
-			// handle typedefs
-		}	
 			
 		for (dec = dl->leftmost; dec != 0; dec = dec->next, free(dec_old)) {
 			((struct ptr_node *)dec->top)->to = type_node;
@@ -196,43 +201,6 @@ void print_node_info(struct generic_node *node) {
 	putchar(' ');
 }
 
-/** Check declaration specifiers (type, storage, qualifiers).
-	If valid, return pointer to an array of three chars specifying the values 
-	for each declaration specifier */
-	/*
-char *check_decl_specs(struct decl_spec *spec) {
-	char type_flags[TS_COUNT] = {0}, storage_flags[SC_COUNT] = {0}, qual_flags[TQ_COUNT] = {0};
-	char which, storage, qualifiers, *ret;
-	struct generic_node *node;
-	struct decl_spec *old_spec;
-	
-	while(spec) {
-		switch(spec->which) {
-		case TS: 
-			switch (spec->type) {
-			case TS_STRUCT: node = spec->node; break;
-			case TS_FUNC: node = spec->node; break;
-			case TS_TYPENAME: node = spec->node; break;
-			}
-			type_flags[spec->type]++; 
-			break;
-		case SC: storage_flags[spec->storage]++; break;
-		case TQ: qual_flags[spec->qualifier]++; break;
-		}
-		
-		old_spec = spec;
-		spec = spec->next;
-		free(old_spec);
-	}
-	
-	ret = malloc(3); // 0: type, 1: storage, 2: qualifier
-	ret[TS]= check_type_specs(type_flags);
-	ret[SC] = check_storage_classes(storage_flags);
-	ret[TQ] = 0; // Ignore type qualifiers for now
-	
-	return ret;
-}*/
-
 /** Check validity of storage classes. If valid, return which storage class. */
 int check_storage_classes(char *sc) {
 	int i, total = 0;
@@ -267,6 +235,9 @@ int check_type_specs(char *ts) {
 	
 	/* Need to check the total so that things like 
 		"long _Complex x;" aren't valid	*/
+	if (total == ts[TS_TYPENAME])
+		return N_TYPENAME;	
+	
 	if (total == ts[TS_VOID])
 		return N_VOID;
 		

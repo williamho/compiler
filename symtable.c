@@ -45,6 +45,7 @@ struct generic_node *new_ptr_node() {
 struct generic_node *new_func_node() {
 	struct func_node *node = (struct func_node *) new_node(N_FUNC);
 	node->ret = 0;
+	node->args = cur_symtable;
 	
 	return (struct generic_node *) node;
 }
