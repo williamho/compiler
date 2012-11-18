@@ -26,6 +26,11 @@ struct declarator *new_declarator(struct generic_node *n) {
 	return d;
 }
 
+void add_declarator(struct declarator *d, struct generic_node *n) {
+	((struct ptr_node *)d->top)->to = n;
+	d->top = ((struct ptr_node *)d->top)->to;
+}
+
 /** Start a new decl_spec list */
 struct decl_spec *new_spec(char which, char val) {
 	struct decl_spec *spec = malloc(sizeof (struct decl_spec));

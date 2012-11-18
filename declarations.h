@@ -46,6 +46,8 @@ struct decl_specs;
 struct symtable;
 struct decl_spec *new_spec(char which, char val);
 struct declarator *new_declarator(struct generic_node *n);
+
+void add_declarator(struct declarator *d, struct generic_node *n);
 void new_declarator_list(struct declarator_list *dl, struct declarator *d);
 void add_declarator_list(struct declarator_list *to, struct declarator_list *from, struct declarator *d);
 void new_declaration(struct decl_spec *d, struct declarator_list *dl);

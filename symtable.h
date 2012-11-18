@@ -73,8 +73,9 @@ struct struct_tag {
 	char complete;
 };
 
-struct func {
+struct func_node {
 	COMMON_SYMBOL_ATTRIBUTES;
+	struct generic_node *ret; // return type
 	struct symtable *args; // mini-symtable to keep track of function arguments
 };
 
@@ -105,6 +106,7 @@ void free_sym(struct symbol *sym);
 struct symbol *get_sym(char *sname, char nspace, struct symtable *table);
 struct generic_node *new_arr_node(int size);
 struct generic_node *new_ptr_node();
+struct generic_node *new_func_node();
 struct struct_tag *new_struct(char *struct_name, char complete);
 
 #endif

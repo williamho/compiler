@@ -9,6 +9,12 @@
 #include "declarations.h"
 #include "file_info.h"
 
+#define CHECK_ARR_SIZE(n) \
+if (n.ntype >= N_FLOAT) { \
+	yyerror("invalid array size: %Lg",n.rval);\
+	n.ival = (unsigned long long) n.rval;\
+}
+
 int yylex();
 int yyparse(void);
 int line_num;
@@ -41,7 +47,7 @@ int cur_scope;
 
 %type <specs> decl_specs decl_spec type_spec storage_class_spec type_qual spec_qual_list struct_or_union_spec
 %type <num> const_expr
-%type <declarator> direct_declarator declarator pointer init_declarator struct_declarator
+%type <declarator> direct_declarator declarator pointer init_declarator struct_declarator abstract_declarator direct_abstract_declarator
 %type <decl_list> init_declarator_list struct_declarator_list struct_decl struct_decl_list
 
 %token SIZEOF INLINE
@@ -75,7 +81,7 @@ external_decl
 	;
 
 function_definition
-	:decl_specs declarator decl_list compound_stmt
+	:decl_specs declarator decl_list compound_stmt // K&R
 	|decl_specs declarator compound_stmt
 	|declarator decl_list compound_stmt
 	|declarator compound_stmt
@@ -259,27 +265,30 @@ direct_declarator
 	}
 	|'(' declarator ')' { $$=$2; }
 	|direct_declarator '[' const_expr ']' {
-		if ($3.ntype >= N_FLOAT) {
-			yyerror("invalid array size");
-			$3.ival = (unsigned long long) $3.rval;
-		}
-		
+		CHECK_ARR_SIZE($3);
 		$$ = $1;
-		((struct arr_node *)$$->top)->base = new_arr_node($3.ival);
-		$$->top = ((struct arr_node *)$$->top)->base;
+		add_declarator($$,new_arr_node($3.ival));
 	}
 	|direct_declarator '[' ']' {
 		$$ = $1;
-		((struct arr_node *)$$->top)->base = new_arr_node(0);
-		$$->top = ((struct arr_node *)$$->top)->base;
+		add_declarator($$,new_arr_node(0));
 	}
 	
 	// functions
-	|direct_declarator '(' param_type_list ')'
-	|direct_declarator '(' ident_list ')'
-	|direct_declarator '(' ')'
+	|direct_declarator '(' param_type_list ')' { 
+		$1->top->nodetype = N_FUNC; 
+		$$ = $1; 
+	}
+	|direct_declarator '(' ident_list ')' {
+		$1->top->nodetype = N_FUNC; 
+		$$ = $1; 
+	}
+	|direct_declarator '(' ')' {
+		$1->top->nodetype = N_FUNC; 
+		$$ = $1; 
+	}
 	;
-
+	
 pointer 
 	:'*' { $$ = new_declarator((struct generic_node *)new_ptr_node()); }
 	|'*' type_qual_list { yywarn("type qualifiers not implemented"); } 
@@ -308,9 +317,13 @@ param_list
 	;
 
 param_decl
-	:decl_specs declarator
+	:decl_specs declarator {
+		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
+		new_declarator_list(dl,$2);
+		new_declaration($1,dl);
+	}
 	|decl_specs abstract_declarator
-	|decl_specs
+	//|decl_specs // prototypes
 	;
 
 ident_list
@@ -330,18 +343,33 @@ abstract_declarator
 	;
 
 direct_abstract_declarator
-	:'(' abstract_declarator ')'
-	|'[' ']'
-	|'[' const_expr ']'
-	|direct_abstract_declarator '[' ']'
-	|direct_abstract_declarator '[' const_expr ']'
-	|'(' ')'
-	|'(' param_type_list ')'
+	:'(' abstract_declarator ')' { $$ = $2; }
+	// arrays
+	|'[' ']' { 
+		$$ = new_declarator(new_arr_node(0)); 
+	}
+	|'[' const_expr ']' { 
+		CHECK_ARR_SIZE($2);
+		$$ = new_declarator(new_arr_node($2.ival)); 
+	}
+	|direct_abstract_declarator '[' ']' { 
+		$$ = $1;
+		add_declarator($$,new_arr_node(0));
+	}
+	|direct_abstract_declarator '[' const_expr ']' {
+		CHECK_ARR_SIZE($3);
+		$$ = $1;
+		add_declarator($$,new_arr_node($3.ival));	
+	}
+	
+	// functions
+	|'(' ')' {}
+	|'(' param_type_list ')' {}
 	|direct_abstract_declarator '(' ')'
 	|direct_abstract_declarator '(' param_type_list ')'
 	;
 
-initializer
+initializer // not implemented
 	:asgn_expr
 	|'{' initializer_list '}'
 	|'{' initializer_list ',' '}'

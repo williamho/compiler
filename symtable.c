@@ -6,6 +6,8 @@
 
 struct symtable *cur_symtable;
 struct symtable_map symtable_map;
+extern int line_num;
+extern char filename[MAX_STR_LEN];
 
 struct symtable *new_file(char *fname) {
 	unsigned long hashval = hash(fname);
@@ -40,6 +42,13 @@ struct generic_node *new_ptr_node() {
 	return (struct generic_node *) node;
 }
 
+struct generic_node *new_func_node() {
+	struct func_node *node = (struct func_node *) new_node(N_FUNC);
+	node->ret = 0;
+	
+	return (struct generic_node *) node;
+}
+
 struct generic_node *new_node(int ntype) {
 	struct generic_node *node;
 
@@ -54,7 +63,7 @@ struct generic_node *new_node(int ntype) {
 		node = malloc(sizeof(struct arr_node));
 		break;
 	case N_FUNC:
-		node = malloc(sizeof(struct func));
+		node = malloc(sizeof(struct func_node));
 		break;
 	case N_STRUCT:
 	case N_UNION:
@@ -98,7 +107,7 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 		sym->namespace = NS_STRUCT_MEM;
 		break;
 	case N_FUNC:
-		new_sym = calloc(1,sizeof(struct func)); 
+		new_sym = calloc(1,sizeof(struct func_node)); 
 		sym->namespace = NS_OTHER;
 		break;
 	}
