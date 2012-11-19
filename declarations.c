@@ -115,7 +115,8 @@ void print_node_info_r(struct generic_node *node) {
 	int i, depth = 0;
 	
 	while (n->nodetype == N_ARR || n->nodetype == N_PTR || 
-			n->nodetype == N_VAR || n->nodetype == N_STRUCT_MEM) {	
+			n->nodetype == N_FUNC || n->nodetype == N_VAR || 
+			n->nodetype == N_STRUCT_MEM) {	
 		for (i=0; i<depth; i++)
 			printf("   ");
 		depth++;
@@ -162,8 +163,20 @@ void print_node_info(struct generic_node *node) {
 		
 		if (node->nodetype == N_STRUCT_MEM)
 			printf("struct member of type");
-		else
+		else 
 			printf("variable of type");
+		break;
+	case N_FUNC: 
+		printf("'%s' declared at %s:%d as\n",n->id,n->file,n->line);
+		printf("function returning");
+		break;
+		
+	case N_STRUCT: 
+		printf("struct %s ",n->id); 
+		if (((struct struct_tag *)n)->complete)
+			printf("(defined at %s:%d)",n->file,n->line);
+		else
+			printf("(incomplete)"); 
 		break;
 	case N_ARR:	printf("array of %d",((struct arr_node *)node)->size);	break;
 	case N_PTR: printf("pointer to");	break;
@@ -185,17 +198,9 @@ void print_node_info(struct generic_node *node) {
 	case N_LONGDOUBLE: printf("long double"); break;
 	case N_CLONGDOUBLE: printf("complex long double"); break;
 	case N_BOOL: printf("bool"); break;
-	case N_STRUCT: 
-		printf("struct %s ",n->id); 
-		if (((struct struct_tag *)n)->complete)
-			printf("(defined at %s:%d)",n->file,n->line);
-		else
-			printf("(incomplete)"); 
-		break;
 	case N_UNION: printf("union"); break;
 	case N_ENUM: printf("enum"); break;
 	case N_TYPEDEF: printf("typedef"); break;
-	case N_FUNC: printf("function"); break;
 
 	default:
 		printf("type %d",node->nodetype);

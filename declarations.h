@@ -42,12 +42,11 @@ struct declarator_list {
 };
 
 struct generic_node;
-struct decl_specs;
 struct symtable;
 struct decl_spec *new_spec(char which, char val);
 struct decl_spec *new_typename_spec(char *typename);
-struct declarator *new_declarator(struct generic_node *n);
 
+struct declarator *new_declarator(struct generic_node *n);
 void add_declarator(struct declarator *d, struct generic_node *n);
 void new_declarator_list(struct declarator_list *dl, struct declarator *d);
 void add_declarator_list(struct declarator_list *to, struct declarator_list *from, struct declarator *d);

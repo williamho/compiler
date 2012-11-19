@@ -81,7 +81,11 @@ external_decl
 	;
 
 function_definition
-	:decl_specs declarator compound_stmt
+	:decl_specs declarator {
+		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
+		new_declarator_list(dl,$2);
+		new_declaration($1,dl);
+	} compound_stmt
 	//|decl_specs declarator decl_list compound_stmt // K&R
 	|declarator decl_list compound_stmt
 	|declarator compound_stmt // return type int
@@ -279,18 +283,20 @@ direct_declarator
 	// functions
 	|direct_declarator '(' param_type_list ')' { 
 		$$ = $1;
-		add_declarator($$,new_func_node());
-		
-		/*$1->top->nodetype = N_FUNC; 
-		$$ = $1; */
+		$$->deepest->nodetype = N_FUNC;
+		//add_declarator($$,new_func_node());
 	}
 	|direct_declarator '(' ident_list ')' {
-		$1->top->nodetype = N_FUNC; 
 		$$ = $1; 
+		$$->deepest->nodetype = N_FUNC;
+		//$1->top->nodetype = N_FUNC; 
+		//add_declarator($$,new_func_node());
 	}
 	|direct_declarator '(' ')' {
-		$1->top->nodetype = N_FUNC; 
 		$$ = $1; 
+		$$->deepest->nodetype = N_FUNC;
+		//$1->top->nodetype = N_FUNC; 
+		//add_declarator($$,new_func_node());
 	}
 	;
 	
