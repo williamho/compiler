@@ -100,10 +100,9 @@ _Imaginary { return _IMAGINARY; }
 	struct symbol *node;
 	yylval.sval = strdup(yytext); 
 	
-	// check if typedef
-	if ((node = get_sym(yylval.sval,NS_OTHER,0)) && node->storage == SC_TYPEDEF) {
+	// TODO: turn typedefs on/off
+	if ((node = get_sym(yylval.sval,NS_OTHER,0)) && node->storage == SC_TYPEDEF)
 		return TYPEDEF_NAME;
-	}
 			
 	return IDENT; 
 }

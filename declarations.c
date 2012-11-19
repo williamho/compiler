@@ -84,6 +84,9 @@ void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
 	sc = check_storage_classes(storage_flags);
 	tq = 0; // Ignore type qualifiers for now
 	
+	if (!dl)
+		return;
+	
 	// If valid, complete the declaration and print the info
 	if (ts >= 0 && sc>= 0) {
 		if (ts == N_STRUCT || ts == N_TYPENAME)

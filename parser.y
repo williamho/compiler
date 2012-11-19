@@ -92,7 +92,9 @@ function_definition
    +==============+ */
    
 decl
-	:decl_specs ';' {} 
+	:decl_specs ';' {
+		new_declaration($1,0);
+	} 
 	|decl_specs init_declarator_list ';' {
 		new_declaration($1,&$2);
 	}
