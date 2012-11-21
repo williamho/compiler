@@ -129,11 +129,12 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 				}
 				
 				// Replacing an incomplete struct tag with a complete one
+				free(cur_sym->id);
+				free(cur_sym->file);
 				memcpy(cur_sym,sym,sizeof(struct struct_tag));
 				((struct struct_tag *)cur_sym)->complete = 1;
 				cur_sym->line = line;
 				cur_sym->file = file;
-				free_sym(sym);
 				return cur_sym;
 			}
 			
