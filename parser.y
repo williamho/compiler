@@ -6,313 +6,590 @@
 #include <stdlib.h>
 #include <string.h>
 #include "symtable.h"
+#include "declarations.h"
+#include "file_info.h"
 
-extern int yylex();
-extern int yyparse(void);
-extern char *filename;
-
-int scope;
-%}
-
-%code requires {
-	enum ntype {
-		N_INT, N_LONG, N_LONGLONG, N_FLOAT, N_DOUBLE, N_LONGDOUBLE
-	};
+#define CHECK_ARR_SIZE(n) \
+if (n.ntype >= N_FLOAT) { \
+	yyerror("invalid array size: %Lg",n.rval);\
+	n.ival = (unsigned long long) n.rval;\
 }
+
+int yylex();
+int yyparse(void);
+int line_num;
+char filename[MAX_STR_LEN];
+struct symtable *cur_symtable;
+
+int cur_scope;
+%}
 
 %union{
 	char cval;
 	char *sval;
 	
 	struct num {
-		int ntype;  /* 0: int,   1: long,   2: long long, 
-					   3: float, 4: double, 5: long double */
+		int ntype;  // int, long, long long, float, double, long double
 		int is_unsigned;
-		long long ival;
+		unsigned long long ival;
 		long double rval;
 	} num;
 	
-	struct symbol *lval;
+	struct decl_spec *specs;
+	struct declarator *declarator;
+	
+	struct declarator_list decl_list;
 }
 
 %token <cval> CHARLIT
-%token <sval> STRING IDENT
-%token <num> NUMBER
+%token <sval> STRING IDENT TYPEDEF_NAME
+%token <num> NUMBER 
 
-%token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ LOGAND LOGOR 
-%token ELLIPSIS TIMESEQ DIVEQ MODEQ PLUSEQ MINUSEQ SHLEQ SHREQ ANDEQ OREQ 
-%token XOREQ AUTO BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE ENUM 
-%token EXTERN FLOAT FOR GOTO IF INLINE INT LONG REGISTER RESTRICT RETURN SHORT 
-%token SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF UNION UNSIGNED VOID VOLATILE 
-%token WHILE _BOOL _COMPLEX _IMAGINARY
+%type <specs> decl_specs decl_spec type_spec storage_class_spec type_qual spec_qual_list struct_or_union_spec
+%type <num> const_expr
+%type <declarator> direct_declarator declarator pointer init_declarator struct_declarator abstract_declarator direct_abstract_declarator
+%type <decl_list> init_declarator_list struct_declarator_list struct_decl struct_decl_list
 
-%type <num.ival> primary_expr cast_expr unary_expr mult_expr add_expr shift_expr
-%type <num.ival> rel_expr eq_expr and_expr xor_expr or_expr log_and_expr
-%type <num.ival> log_or_expr cond_expr postfix_expr asgn_expr expr
+%token SIZEOF INLINE
+%token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
+%token LOGAND LOGOR TIMESEQ DIVEQ MODEQ PLUSEQ
+%token MINUSEQ SHLEQ SHREQ ANDEQ
+%token XOREQ OREQ
 
-%type <lval> lvalue
+%token TYPEDEF EXTERN STATIC AUTO REGISTER CONST VOLATILE RESTRICT 
+%token CHAR SHORT INT LONG SIGNED UNSIGNED FLOAT DOUBLE VOID
+%token _BOOL _COMPLEX _IMAGINARY 
+%token STRUCT UNION ENUM ELLIPSIS
 
+%token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
+
+%start translation_unit
 %%
 
+/* +===========+
+   | TOP LEVEL |
+   +===========+ */
+
 translation_unit
-	:top_level_decl { scope=S_FILE; }
-	|translation_unit top_level_decl { scope=S_FILE; }
+	:external_decl
+	|translation_unit external_decl
 	;
 
-top_level_decl
-	:decl
-	|func_def
-	;
-	
-stmt
-	:compound_stmt
-	|expr ';' { yyerror("exprval=%lld",$1); }
-	|';'
-	;
-	
-compound_stmt
-	:'{' '}'
-	|'{' { new_symtable(scope); scope=S_BLOCK; } decl_or_stmt_list '}' { remove_symtable(); }
-	;
-
-decl_or_stmt_list
-	:decl_or_stmt_list decl
-	|decl_or_stmt_list stmt
+external_decl
+	:function_definition
 	|decl
-	|stmt
+	;
+
+function_definition
+	:decl_specs declarator {
+		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
+		new_declarator_list(dl,$2);
+		new_declaration($1,dl);
+	} compound_stmt
+	//|decl_specs declarator decl_list compound_stmt // K&R
+	|declarator decl_list compound_stmt
+	|declarator compound_stmt // return type int
+	;
+
+/* +==============+
+   | DECLARATIONS |
+   +==============+ */
+   
+decl
+	:decl_specs ';' {
+		new_declaration($1,0);
+	} 
+	|decl_specs init_declarator_list ';' {
+		new_declaration($1,&$2);
+	}
+	;
+
+decl_specs
+	:decl_spec
+	|decl_specs decl_spec {
+		$2->next = $1; // Add decl_spec to linked list of specs
+		$$ = $2;
+	}
+	;
+
+decl_spec
+	:storage_class_spec
+	|type_spec
+	|type_qual { yywarn("type qualifiers not implemented"); }
+	|INLINE { yywarn("inline not implemented"); } // Not implemented
 	;
 	
-func_def
-	:func_def_spec { scope=S_FUNC; } compound_stmt
+init_declarator_list
+	:init_declarator {
+		new_declarator_list(&$$,$1);
+	}
+	|init_declarator_list ',' init_declarator {
+		add_declarator_list(&$$,&$1,$3);
+	}
+	;
+
+init_declarator
+	:declarator { $1->deepest->nodetype = N_VAR; $$ = $1; }
+	|declarator '=' initializer // Not implemented
+	;
+
+storage_class_spec
+	:TYPEDEF { $$ = new_spec(SC,SC_TYPEDEF); }
+	|EXTERN { $$ = new_spec(SC,SC_EXTERN); }
+	|STATIC { $$ = new_spec(SC,SC_STATIC); }
+	|AUTO { $$ = new_spec(SC,SC_AUTO); }
+	|REGISTER { $$ = new_spec(SC,SC_REGISTER); }
 	;
 	
-func_def_spec
-	:IDENT '(' ')' { // To be added: prototype scope
-		if (new_sym($1)) 
-			scope = S_FUNC;
-		else {
-			struct symbol *sym = get_sym($1);
-			yyerror("error: redefinition of '%s' previously declared at %s %d", $1, sym->fname, sym->line);
-			// later, distinguish between namespaces
+type_spec
+	:VOID { $$ = new_spec(TS,TS_VOID); }
+	|CHAR { $$ = new_spec(TS,TS_CHAR); }
+	|SHORT { $$ = new_spec(TS,TS_SHORT); }
+	|INT { $$ = new_spec(TS,TS_INT); }
+	|LONG { $$ = new_spec(TS,TS_LONG); }
+	|FLOAT { $$ = new_spec(TS,TS_FLOAT); }
+	|DOUBLE { $$ = new_spec(TS,TS_DOUBLE); }
+	|SIGNED { $$ = new_spec(TS,TS_SIGNED); }
+	|UNSIGNED { $$ = new_spec(TS,TS_UNSIGNED); }
+	|_BOOL { $$ = new_spec(TS,TS_BOOL); }
+	|_COMPLEX { $$ = new_spec(TS,TS_COMPLEX); }
+	|struct_or_union_spec { $$ = $1; }
+	|enum_spec { $$ = new_spec(TS,TS_ENUM); }
+	|TYPEDEF_NAME { $$ = new_typename_spec($1); }
+	;
+	
+struct_or_union_spec
+	:struct_or_union IDENT { 
+			new_symtable(S_STRUCT);
+			printf("struct %s declaration at %s:%d {\n", $2,filename,line_num); 
+		} 
+		'{' struct_decl_list '}' { 
+			$$ = new_spec(TS,TS_STRUCT);
+			$$->node = (struct generic_node *)new_struct($2,1);
+			printf("}\n");
+	}
+	|struct_or_union {  // unnamed struct
+		new_symtable(S_STRUCT);
+		printf("struct declaration at %s:%d {\n",filename,line_num); 
+		} 
+		'{' struct_decl_list '}' {
+			$$ = new_spec(TS,TS_STRUCT);
+			$$->node = (struct generic_node *)new_struct(0,1);
+			printf("}\n");
+	}
+	|struct_or_union IDENT {
+		// Check if struct/union exists. If not, incomplete declaration.
+		$$ = new_spec(TS,TS_STRUCT);
+		$$->node = (struct generic_node *)get_sym($2,NS_STRUCT_TAG,0);
+		
+		// If struct tag doesn't already exist, add it as incomplete
+		if (!$$->node) {
+			new_symtable(S_STRUCT);
+			$$->node = (struct generic_node *)new_struct($2,0);
 		}
 	}
 	;
-	
-expr_list
-	:asgn_expr
-	|expr_list ',' asgn_expr
+
+struct_or_union
+	:STRUCT
+	|UNION { yywarn("unions not implemented"); }
 	;
 
-init
-	:asgn_expr
-	|'{' init_list '}'
-	|'{' init_list ',' '}'
-	;
-	
-init_list
-	:init
-	|init_list ',' init
-	|designation init
-	|init_list ',' designation init
-	;
-	
-designation
-	:desig_list '='
-	;
-	
-desig_list
-	:designator
-	|desig_list designator
-	;
-	
-designator
-	:'[' NUMBER ']'
-	|'[' CHARLIT ']'
-	|'[' STRING ']'
-	|'.' IDENT
+struct_decl_list
+	:struct_decl
+	|struct_decl_list struct_decl
 	;
 
-primary_expr
+struct_decl
+	:spec_qual_list struct_declarator_list ';' { 
+		new_declaration($1,&$2);
+	}
+	;
+
+spec_qual_list
+	:type_spec spec_qual_list {
+		$2->next = $1; // Add type_spec to linked list of specs
+		$$ = $2;
+	}
+	|type_spec 
+	|type_qual spec_qual_list { yywarn("type qualifiers not implemented"); }
+	|type_qual { yywarn("type qualifiers not implemented"); }
+	;
+
+struct_declarator_list
+	// same as init_decl_list
+	:struct_declarator {
+		new_declarator_list(&$$,$1);
+	}
+	|struct_declarator_list ',' struct_declarator {
+		add_declarator_list(&$$,&$1,$3);
+	}
+	;
+
+struct_declarator
+	:declarator { $1->deepest->nodetype = N_STRUCT_MEM; $$ = $1; }
+	|':' const_expr { yywarn("bit fields not implemented"); }
+	|declarator ':' const_expr { yywarn("bit fields not implemented"); }
+	;
+
+enum_spec
+	:ENUM '{' enumerator_list '}'
+	|ENUM IDENT '{' enumerator_list '}'
+	|ENUM IDENT
+	;
+
+enumerator_list
+	:enumerator
+	|enumerator_list ',' enumerator
+	;
+
+enumerator
+	:IDENT
+	|IDENT '=' const_expr
+	;
+
+type_qual
+	:CONST { $$ = new_spec(TQ,TQ_CONST); }
+	|RESTRICT { $$ = new_spec(TQ,TQ_RESTRICT); }
+	|VOLATILE { $$ = new_spec(TQ,TQ_VOLATILE); }
+	;
+
+declarator
+	:pointer direct_declarator {
+		$$ = new_declarator($1->top);
+		((struct ptr_node *)$2->top)->to = $1->deepest;
+		$$->deepest = $2->deepest;
+		free($1);
+		free($2);
+	}
+	|direct_declarator { $$ = $1; }
+	;
+	
+direct_declarator
 	:IDENT {
-		struct symbol *sym = get_sym($1);
-		if (sym)
-			$$ = sym->val;
-		else {
-			$$ = 0;
-			yyerror("error: undeclared identifier '%s'", $1);	
-		}
+		$$ = new_declarator((struct generic_node *)new_sym($1));
 	}
-	|NUMBER { 
-		if ($1.ntype >= N_FLOAT) {
-			yyerror("warning: Truncating real number %Lg to integer %lld",$1.rval,(long long)$1.rval); 
-			$$ = (long long)$1.rval;
-		}
-		else
-			$$ = $1.ival;
+	|'(' declarator ')' { $$=$2; }
+	|direct_declarator '[' const_expr ']' {
+		CHECK_ARR_SIZE($3);
+		$$ = $1;
+		add_declarator($$,new_arr_node($3.ival));
 	}
-	|CHARLIT { $$ = (long long)$1; }
-	|STRING { $$ = (long long)$1; }
-	|'(' expr ')' { $$ = (long long)$2; }
+	|direct_declarator '[' ']' {
+		$$ = $1;
+		add_declarator($$,new_arr_node(0));
+	}
+	
+	// functions
+	|direct_declarator '(' param_type_list ')' { 
+		$$ = $1;
+		$$->deepest->nodetype = N_FUNC;
+		//add_declarator($$,new_func_node());
+	}
+	|direct_declarator '(' ident_list ')' {
+		$$ = $1; 
+		$$->deepest->nodetype = N_FUNC;
+		//$1->top->nodetype = N_FUNC; 
+		//add_declarator($$,new_func_node());
+	}
+	|direct_declarator '(' ')' {
+		$$ = $1; 
+		$$->deepest->nodetype = N_FUNC;
+		//$1->top->nodetype = N_FUNC; 
+		//add_declarator($$,new_func_node());
+	}
+	;
+	
+pointer 
+	:'*' { $$ = new_declarator((struct generic_node *)new_ptr_node()); }
+	|'*' type_qual_list { yywarn("type qualifiers not implemented"); } 
+	|'*' pointer {
+		$$ = $2;
+		((struct ptr_node *) $$->top)->to = new_ptr_node();
+		$$->top = ((struct ptr_node *)$$->top)->to;
+	}
+	|'*' type_qual_list pointer { yywarn("type qualifiers not implemented"); } 
+	;
+
+type_qual_list
+	:type_qual
+	|type_qual_list type_qual
+	;
+
+// Functions
+param_type_list
+	:param_list
+	|param_list ',' ELLIPSIS
+	;
+
+param_list
+	:param_decl
+	|param_list ',' param_decl
+	;
+
+param_decl
+	:decl_specs declarator {
+		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
+		new_declarator_list(dl,$2);
+		new_declaration($1,dl);
+	}
+	//|decl_specs abstract_declarator
+	//|decl_specs // prototypes
+	;
+
+ident_list
+	:IDENT
+	|ident_list ',' IDENT
+	;
+
+type_name
+	:spec_qual_list
+	|spec_qual_list abstract_declarator
+	;
+
+abstract_declarator
+	:pointer
+	|direct_abstract_declarator
+	|pointer direct_abstract_declarator
+	;
+
+direct_abstract_declarator
+	:'(' abstract_declarator ')' { $$ = $2; }
+	// arrays
+	|'[' ']' { 
+		$$ = new_declarator(new_arr_node(0)); 
+	}
+	|'[' const_expr ']' { 
+		CHECK_ARR_SIZE($2);
+		$$ = new_declarator(new_arr_node($2.ival)); 
+	}
+	|direct_abstract_declarator '[' ']' { 
+		$$ = $1;
+		add_declarator($$,new_arr_node(0));
+	}
+	|direct_abstract_declarator '[' const_expr ']' {
+		CHECK_ARR_SIZE($3);
+		$$ = $1;
+		add_declarator($$,new_arr_node($3.ival));	
+	}
+	
+	// functions
+	|'(' ')' {}
+	|'(' param_type_list ')' {}
+	|direct_abstract_declarator '(' ')'
+	|direct_abstract_declarator '(' param_type_list ')'
+	;
+
+initializer // not implemented
+	:asgn_expr
+	|'{' initializer_list '}'
+	|'{' initializer_list ',' '}'
+	;
+
+initializer_list
+	:initializer
+	|initializer_list ',' initializer
+	;
+	
+/* +=============+
+   | EXPRESSIONS |
+   +=============+ */
+	
+primary_expr
+	:IDENT
+	|NUMBER
+	|STRING
+	|'(' expr ')'
 	;
 
 postfix_expr
-	:postfix_expr '[' expr ']' {  
-		yyerror("warning: arrays not implemented");
-		$$ = 0; // change later
-	}
-	|postfix_expr '.' IDENT {
-		yyerror("warning: structs/unions not implemented");
-		$$ = 0; // change later
-	}
-	|postfix_expr INDSEL IDENT {
-		yyerror("warning: structs/unions not implemented");
-		$$ = 0; // change later
-	}
+	:primary_expr
+	|postfix_expr '[' expr ']' 
 	|postfix_expr '(' ')'
-	|postfix_expr '(' expr_list ')'
-	|lvalue PLUSPLUS { $$ = get_sym_p($1); set_sym_p($1,$$+1); }
-	|lvalue MINUSMINUS { $$ = get_sym_p($1); set_sym_p($1,$$-1); }
-	|'(' INT ')' '{' init_list ',' '}' {$$ = 1; /* change later*/}
-	|'(' INT ')' '{' init_list '}' {$$ = 1; /* change later*/}
-	|primary_expr
+	|postfix_expr '(' arg_expr_list ')'
+	|postfix_expr '.' IDENT
+	|postfix_expr INDSEL IDENT
+	|postfix_expr PLUSPLUS
+	|postfix_expr MINUSMINUS
 	;
-	
+
+arg_expr_list
+	:asgn_expr
+	|arg_expr_list ',' asgn_expr
+	;
+
 unary_expr
 	:postfix_expr
-	|SIZEOF '(' INT ')' { $$ = sizeof(long long); /* change later */ }
-	|SIZEOF unary_expr  { $$ = sizeof($2); /* change later */ }
-	|'-' cast_expr { $$ = -$2; }
-	|'+' cast_expr { $$ = $2; }
-	|'!' cast_expr { $$ = !$2; }
-	|'~' cast_expr { $$ = ~$2; }
-	|'&' cast_expr { $$ = (long long)&$2; /*address*/}
-	|'*' cast_expr { $$ = $2; /* pointers don't exist yet */}
-	|PLUSPLUS lvalue { $$ = get_sym_p($2)+1; set_sym_p($2,$$); }
-	|MINUSMINUS lvalue { $$ = get_sym_p($2)-1; set_sym_p($2,$$); }
+	|PLUSPLUS unary_expr
+	|MINUSMINUS unary_expr
+	|'&' cast_expr
+	|'*' cast_expr
+	|'+' cast_expr
+	|'-' cast_expr
+	|'~' cast_expr
+	|'!' cast_expr
+	|SIZEOF unary_expr
+	|SIZEOF '(' type_name ')'
 	;
 
 cast_expr
 	:unary_expr
-	|'(' INT ')' cast_expr { $$ = (long long) $4; /* change later */ }
-	;
-	
-mult_expr
-	:mult_expr '*' cast_expr { $$ = $1 * $3; }
-	|mult_expr '%' cast_expr { $$ = $1 % $3; }
-	|mult_expr '/' cast_expr { 
-		if ($3) 
-			$$ = $1 / $3; 
-		else {
-			yyerror("error: divide by 0");
-			$$ = 0; //technically, undefined
-		}
-	}
-	|cast_expr
+	|'(' type_name ')' cast_expr
 	;
 
+mult_expr
+	:cast_expr
+	|mult_expr '*' cast_expr
+	|mult_expr '/' cast_expr
+	|mult_expr '%' cast_expr
+	;
 
 add_expr
-	:add_expr '+' mult_expr { $$ = $1 + $3; }
-	|add_expr '-' mult_expr { $$ = $1 - $3; }
-	|mult_expr
+	:mult_expr
+	|add_expr '+' mult_expr
+	|add_expr '-' mult_expr
 	;
-	
+
 shift_expr
-	:shift_expr SHL add_expr { $$ = $1 << $3; }
-	|shift_expr SHR add_expr { $$ = $1 >> $3; }
-	|add_expr
+	:add_expr
+	|shift_expr SHL add_expr
+	|shift_expr SHR add_expr
 	;
-	
+
 rel_expr
-	:rel_expr '<' shift_expr { $$ = $1 < $3; }
-	|rel_expr '>' shift_expr { $$ = $1 > $3; }
-	|rel_expr LTEQ shift_expr { $$ = $1 <= $3; }
-	|rel_expr GTEQ shift_expr { $$ = $1 >= $3; }
-	|shift_expr
+	:shift_expr
+	|rel_expr '<' shift_expr
+	|rel_expr '>' shift_expr
+	|rel_expr LTEQ shift_expr
+	|rel_expr GTEQ shift_expr
 	;
 
 eq_expr
-	:eq_expr EQEQ rel_expr { $$ = $1 == $3; }
-	|eq_expr NOTEQ rel_expr { $$ = $1 != $3; }
-	|rel_expr
+	:rel_expr
+	|eq_expr EQEQ rel_expr
+	|eq_expr NOTEQ rel_expr
 	;
-	
+
 and_expr
-	:and_expr '&' eq_expr { $$ = $1 & $3; }
-	|eq_expr
+	:eq_expr
+	|and_expr '&' eq_expr
 	;
 
 xor_expr
-	:xor_expr '^' and_expr { $$ = $1 ^ $3; }
-	|and_expr
+	:and_expr
+	|xor_expr '^' and_expr
 	;
 
 or_expr
-	:or_expr '|' xor_expr { $$ = $1 | $3; }
-	|xor_expr
+	:xor_expr
+	|or_expr '|' xor_expr
 	;
-	
+
 log_and_expr
-	:log_and_expr LOGAND or_expr { $$ = $1 && $3; }
-	|or_expr
+	:or_expr
+	|log_and_expr LOGAND or_expr
 	;
 
 log_or_expr
-	:log_or_expr LOGOR log_and_expr { $$ = $1 || $3; }
-	|log_and_expr
-	;
-	
-cond_expr
-	:log_or_expr '?' expr ':' cond_expr {
-		$$ = $1 ? $3 : $5;
-	}
-	|log_or_expr
+	:log_and_expr
+	|log_or_expr LOGOR log_and_expr
 	;
 
-lvalue
-	:IDENT { 
-		if (!($$ = get_sym($1)))
-			yyerror("error: undeclared identifier '%s'", $1);
-	}
+cond_expr
+	:log_or_expr
+	|log_or_expr '?' expr ':' cond_expr
 	;
-	
+
 asgn_expr
 	:cond_expr
-	|lvalue '=' asgn_expr { $$ = $3; set_sym_p($1,$$); } 
-	|lvalue TIMESEQ asgn_expr { $$ = $1->val * $3; set_sym_p($1,$$); } 
-	|lvalue DIVEQ asgn_expr { $$ = $1->val / $3; set_sym_p($1,$$); } 
-	|lvalue MODEQ asgn_expr { $$ = $1->val % $3; set_sym_p($1,$$); } 
-	|lvalue PLUSEQ asgn_expr { $$ = $1->val + $3; set_sym_p($1,$$); } 
-	|lvalue MINUSEQ asgn_expr { $$ = $1->val - $3; set_sym_p($1,$$); } 
-	|lvalue SHLEQ asgn_expr { $$ = $1->val << $3; set_sym_p($1,$$); } 
-	|lvalue SHREQ asgn_expr { $$ = $1->val >> $3; set_sym_p($1,$$); } 
-	|lvalue ANDEQ asgn_expr { $$ = $1->val & $3; set_sym_p($1,$$); } 
-	|lvalue OREQ asgn_expr { $$ = $1->val | $3; set_sym_p($1,$$); } 
-	|lvalue XOREQ asgn_expr { $$ = $1->val ^ $3; set_sym_p($1,$$); } 
+	|unary_expr '=' asgn_expr
+	|unary_expr DIVEQ asgn_expr
+	|unary_expr MODEQ asgn_expr
+	|unary_expr PLUSEQ asgn_expr
+	|unary_expr MINUSEQ asgn_expr
+	|unary_expr SHLEQ asgn_expr
+	|unary_expr SHREQ asgn_expr
+	|unary_expr ANDEQ asgn_expr
+	|unary_expr XOREQ asgn_expr
+	|unary_expr OREQ asgn_expr
 	;
-	
+
 expr
-	:expr ',' asgn_expr { $$ = $3; } 
-	|asgn_expr
+	:asgn_expr
+	|expr ',' asgn_expr
+	;
+
+const_expr
+	//:cond_expr
+	:NUMBER 
+	;
+
+/* +============+
+   | STATEMENTS |
+   +============+ */
+	
+stmt
+	:labeled_stmt
+	|compound_stmt
+	|expr_stmt
+	|selection_stmt
+	|iteration_stmt
+	|jump_stmt
+	;
+
+labeled_stmt
+	:IDENT ':' stmt
+	|CASE const_expr ':' stmt
+	|DEFAULT ':' stmt
+	;
+
+compound_stmt
+	:'{' '}'
+	|'{' { 
+		// If compound statement encountered in file scope, it must be a function
+		if (cur_symtable->scope_type == S_FILE)
+			new_symtable(S_FUNC); 
+		else
+			new_symtable(S_BLOCK); 
+	} decl_or_stmt_list '}' { remove_symtable(); }
+	;
+
+decl_or_stmt_list
+	:decl
+	|stmt
+	|decl_or_stmt_list decl
+	|decl_or_stmt_list stmt
 	;
 	
-decl
-	:INT ident_list ';'
+decl_list
+	:decl
+	|decl_list decl
 	;
-	
-ident_list
-	:ident_list ',' IDENT { 
-		if (!new_sym($3)) {
-			struct symbol *sym = get_sym($3);
-			yyerror("error: redeclaration of '%s' previously declared at %s %d", $3, sym->fname, sym->line);
-		}
-	}
-	|IDENT { 
-		if (!new_sym($1)) {
-			struct symbol *sym = get_sym($1);
-			yyerror("error: redeclaration of '%s' previously declared at %s %d", $1, sym->fname, sym->line);
-		}
-	}
+
+expr_stmt
+	:';'
+	|expr ';'
+	;
+
+selection_stmt
+	:IF '(' expr ')' stmt
+	|IF '(' expr ')' stmt ELSE stmt
+	|SWITCH '(' expr ')' stmt
+	;
+
+iteration_stmt
+	:WHILE '(' expr ')' stmt
+	|DO stmt WHILE '(' expr ')' ';'
+	|FOR '(' expr_stmt expr_stmt ')' stmt
+	|FOR '(' expr_stmt expr_stmt expr ')' stmt
+	;
+
+jump_stmt
+	:GOTO IDENT ';'
+	|CONTINUE ';'
+	|BREAK ';'
+	|RETURN ';'
+	|RETURN expr ';'
 	;
 	
 %%

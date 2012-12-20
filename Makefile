@@ -1,11 +1,14 @@
-a: bin/y.tab.o bin/lex.yy.o bin/symtable.o
-	gcc -g -o a bin/symtable.o bin/y.tab.o bin/lex.yy.o 
+a: bin/y.tab.o bin/lex.yy.o bin/symtable.o bin/declarations.o
+	gcc -g -o a bin/declarations.o bin/symtable.o bin/y.tab.o bin/lex.yy.o 
 
-bin/symtable.o: symtable.c 
+bin/declarations.o: declarations.c declarations.h
+	gcc -c declarations.c -o bin/declarations.o
+	
+bin/symtable.o: symtable.c symtable.h
 	gcc -c symtable.c -o bin/symtable.o
 	
 bin/y.tab.o: parser.y
-	bison -d parser.y -y
+	bison --report=state -d parser.y -y
 	gcc -c y.tab.c -o bin/y.tab.o
 	
 bin/lex.yy.o: lexer.l
