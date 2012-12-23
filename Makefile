@@ -1,5 +1,5 @@
-a: bin/expressions.o bin/symtable.o bin/declarations.o bin/lex.yy.o bin/y.tab.o 
-	gcc -g -o a bin/declarations.o bin/symtable.o bin/expressions.o bin/y.tab.o bin/lex.yy.o 
+a: bin/expressions.o bin/symtable.o bin/declarations.o bin/statements.o bin/lex.yy.o bin/y.tab.o 
+	gcc -g -o a bin/declarations.o bin/symtable.o bin/expressions.o bin/statements.o bin/y.tab.o bin/lex.yy.o 
 
 bin/declarations.o: declarations.c declarations.h
 	gcc -c declarations.c -o bin/declarations.o
@@ -9,6 +9,9 @@ bin/symtable.o: symtable.c symtable.h
 	
 bin/expressions.o: expressions.c expressions.h
 	gcc -c expressions.c -o bin/expressions.o
+
+bin/statements.o: statements.c statements.h
+	gcc -c statements.c -o bin/statements.o
 
 bin/y.tab.o: parser.y
 	bison --report=state -d parser.y -y

@@ -7,6 +7,7 @@
 #include <string.h>
 #include "symtable.h"
 #include "declarations.h"
+#include "statements.h"
 #include "expressions.h"
 #include "file_info.h"
 
@@ -41,19 +42,25 @@ int cur_scope;
 	
 	struct declarator_list decl_list;
 	struct expr_node *expr;
+	struct stmt_node *stmt;
 }
 
 %token <cval> CHARLIT
 %token <sval> STRING IDENT TYPEDEF_NAME
 %token <num> NUMBER 
 
-%type <specs> decl_specs decl_spec type_spec storage_class_spec type_qual spec_qual_list struct_or_union_spec
+%type <specs> decl_specs decl_spec type_spec storage_class_spec type_qual 
+	spec_qual_list struct_or_union_spec
 %type <num> const_expr
-%type <declarator> direct_declarator declarator pointer init_declarator struct_declarator abstract_declarator direct_abstract_declarator
-%type <decl_list> init_declarator_list struct_declarator_list struct_decl struct_decl_list
+%type <declarator> direct_declarator declarator pointer init_declarator 
+	struct_declarator abstract_declarator direct_abstract_declarator
+%type <decl_list> init_declarator_list struct_declarator_list struct_decl
+	struct_decl_list
 %type <expr> primary_expr postfix_expr arg_expr_list unary_expr 
-cast_expr mult_expr add_expr shift_expr rel_expr eq_expr and_expr 
-xor_expr or_expr log_and_expr log_or_expr cond_expr asgn_expr expr
+	cast_expr mult_expr add_expr shift_expr rel_expr eq_expr and_expr 
+	xor_expr or_expr log_and_expr log_or_expr cond_expr asgn_expr expr
+%type <stmt> expr_stmt selection_stmt iteration_stmt jump_stmt stmt_list
+	compound_stmt stmt decl_or_stmt_list 
 
 %token SIZEOF INLINE
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
@@ -535,36 +542,52 @@ const_expr
    +============+ */
 	
 stmt
-	:labeled_stmt
-	|compound_stmt
+	:compound_stmt { print_stmts($1); }
 	|expr_stmt
+//	|labeled_stmt
 	|selection_stmt
 	|iteration_stmt
 	|jump_stmt
 	;
 
+/*
 labeled_stmt
-	:IDENT ':' stmt
-	|CASE const_expr ':' stmt
-	|DEFAULT ':' stmt
+	:IDENT ':' stmt { yywarn("switch not implemented"); }
+	|CASE const_expr ':' stmt { yywarn("switch not implemented"); }
+	|DEFAULT ':' stmt { yywarn("switch not implemented"); }
 	;
+*/
 
 compound_stmt
-	:'{' '}'
+	:'{' '}' {}
 	|'{' { 
 	// If compound statement encountered in file scope, it must be a function
 		if (cur_symtable->scope_type == S_FILE)
 			new_symtable(S_FUNC); 
 		else
 			new_symtable(S_BLOCK); 
-	} decl_or_stmt_list '}' { remove_symtable(); }
+	} decl_or_stmt_list '}' { 
+		$$ = $3;
+ print_stmts($3); 
+		remove_symtable(); 
+	}
 	;
 
 decl_or_stmt_list
+	:decl_list { $$ = 0; }
+	|stmt_list
+	|decl_list stmt_list { $$ = $2; }
+/*
 	:decl
 	|stmt
 	|decl_or_stmt_list decl
 	|decl_or_stmt_list stmt
+*/
+	;
+
+stmt_list
+	:stmt
+	|stmt_list stmt { add_stmt_list($1,$2); $$ = $1; }
 	;
 	
 decl_list
@@ -573,29 +596,38 @@ decl_list
 	;
 
 expr_stmt
-	:';'
-	|expr ';' { print_expr($1); }
+	:';' {}
+	|expr ';' {
+		$$ = new_stmt_list($1);
+		// print_expr($1);
+	}
 	;
 
 selection_stmt
-	:IF '(' expr ')' stmt
-	|IF '(' expr ')' stmt ELSE stmt
-	|SWITCH '(' expr ')' stmt
+	:IF '(' expr ')' stmt { $$ = new_if($3,$5,0); }
+	|IF '(' expr ')' stmt ELSE stmt { $$ = new_if($3,$5,$7); }
+	|SWITCH '(' expr ')' stmt { yywarn("switch not implemented"); }
 	;
 
 iteration_stmt
-	:WHILE '(' expr ')' stmt
-	|DO stmt WHILE '(' expr ')' ';'
-	|FOR '(' expr_stmt expr_stmt ')' stmt
-	|FOR '(' expr_stmt expr_stmt expr ')' stmt
+	:WHILE '(' expr ')' stmt {
+		$$ = new_while($3,$5);	
+	}
+	|DO stmt WHILE '(' expr ')' ';' { yywarn("do loop not implemented"); }
+	|FOR '(' expr_stmt expr_stmt ')' stmt { 
+		$$ = new_for($3,$4,0,$6); 
+	}
+	|FOR '(' expr_stmt expr_stmt expr ')' stmt { 
+		$$ = new_for($3,$4,$5,$7); 
+	}
 	;
 
 jump_stmt
-	:GOTO IDENT ';'
-	|CONTINUE ';'
-	|BREAK ';'
-	|RETURN ';'
-	|RETURN expr ';'
+	:GOTO IDENT ';' { yywarn("goto not implemented"); }
+	|CONTINUE ';'  { $$ = new_jump_stmt(CONTINUE); }
+	|BREAK ';' { $$ = new_jump_stmt(BREAK); }
+	|RETURN ';' { $$ = new_jump_stmt(RETURN); }
+	|RETURN expr ';' { $$ = new_stmt_list($2); $$->nodetype = RETURN; }
 	;
 	
 %%
