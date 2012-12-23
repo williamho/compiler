@@ -7,6 +7,7 @@
 #include <string.h>
 #include "symtable.h"
 #include "declarations.h"
+#include "expressions.h"
 #include "file_info.h"
 
 #define CHECK_ARR_SIZE(n) \
@@ -39,6 +40,7 @@ int cur_scope;
 	struct declarator *declarator;
 	
 	struct declarator_list decl_list;
+	struct expr_node *expr;
 }
 
 %token <cval> CHARLIT
@@ -49,6 +51,9 @@ int cur_scope;
 %type <num> const_expr
 %type <declarator> direct_declarator declarator pointer init_declarator struct_declarator abstract_declarator direct_abstract_declarator
 %type <decl_list> init_declarator_list struct_declarator_list struct_decl struct_decl_list
+%type <expr> primary_expr postfix_expr arg_expr_list unary_expr 
+cast_expr mult_expr add_expr shift_expr rel_expr eq_expr and_expr 
+xor_expr or_expr log_and_expr log_or_expr cond_expr asgn_expr expr
 
 %token SIZEOF INLINE
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
@@ -396,132 +401,133 @@ initializer_list
    +=============+ */
 	
 primary_expr
-	:IDENT
-	|NUMBER
-	|STRING
-	|'(' expr ')'
+	:IDENT { $$ = new_sym_node(get_sym($1,NS_OTHER,0)); }
+	|NUMBER { $$ = new_const_node($1.ival); }
+	|STRING { $$ = new_string_node($1); }
+	|'(' expr ')' { $$ = $2; }
 	;
 
 postfix_expr
 	:primary_expr
-	|postfix_expr '[' expr ']' 
-	|postfix_expr '(' ')'
-	|postfix_expr '(' arg_expr_list ')'
-	|postfix_expr '.' IDENT
-	|postfix_expr INDSEL IDENT
-	|postfix_expr PLUSPLUS
-	|postfix_expr MINUSMINUS
+	|postfix_expr '[' expr ']' { $$ = new_array_access_node($1,$3); }
+	|postfix_expr '(' ')' { $$ = new_func_call_node($1,0); }
+	|postfix_expr '(' arg_expr_list ')' { $$ = new_func_call_node($1,$3); }
+	|postfix_expr '.' IDENT { yywarn("structs not implemented"); }
+	|postfix_expr INDSEL IDENT { yywarn("structs not implemented"); }
+	|postfix_expr PLUSPLUS { $$ = new_unary_node(E_POSTINC,$1); }
+	|postfix_expr MINUSMINUS { $$ = new_unary_node(E_POSTDEC,$1); }
 	;
 
 arg_expr_list
-	:asgn_expr
-	|arg_expr_list ',' asgn_expr
+	:asgn_expr { $$ = new_func_arg_list($1); }
+	|arg_expr_list ',' asgn_expr { add_func_arg($1,$3); $$ = $1; }
 	;
 
 unary_expr
 	:postfix_expr
-	|PLUSPLUS unary_expr
-	|MINUSMINUS unary_expr
-	|'&' cast_expr
-	|'*' cast_expr
-	|'+' cast_expr
-	|'-' cast_expr
-	|'~' cast_expr
-	|'!' cast_expr
-	|SIZEOF unary_expr
-	|SIZEOF '(' type_name ')'
+	|PLUSPLUS unary_expr { $$ = new_unary_node(E_PREINC,$2); }
+	|MINUSMINUS unary_expr { $$ = new_unary_node(E_PREDEC,$2); }
+	|'&' cast_expr { $$ = new_unary_node('&',$2); }
+	|'*' cast_expr { $$ = new_unary_node('*',$2); }
+	|'+' cast_expr { $$ = new_unary_node('+',$2); }
+	|'-' cast_expr { $$ = new_unary_node('-',$2); }
+	|'~' cast_expr { $$ = new_unary_node('~',$2); }
+	|'!' cast_expr { $$ = new_unary_node('!',$2); }
+	|SIZEOF unary_expr { yywarn("sizeof not implemented"); }
+	|SIZEOF '(' type_name ')' { yywarn("sizeof not implemented"); }
 	;
 
 cast_expr
 	:unary_expr
-	|'(' type_name ')' cast_expr
+	|'(' type_name ')' cast_expr { yywarn("casts not implemented"); }
 	;
 
 mult_expr
 	:cast_expr
-	|mult_expr '*' cast_expr
-	|mult_expr '/' cast_expr
-	|mult_expr '%' cast_expr
+	|mult_expr '*' cast_expr { $$ = new_binary_node('*',$1,$3); }
+	|mult_expr '/' cast_expr { $$ = new_binary_node('/',$1,$3); }
+	|mult_expr '%' cast_expr { $$ = new_binary_node('%',$1,$3); }
 	;
 
 add_expr
 	:mult_expr
-	|add_expr '+' mult_expr
-	|add_expr '-' mult_expr
+	|add_expr '+' mult_expr { $$ = new_binary_node('+',$1,$3); }
+	|add_expr '-' mult_expr { $$ = new_binary_node('-',$1,$3); }
 	;
 
 shift_expr
 	:add_expr
-	|shift_expr SHL add_expr
-	|shift_expr SHR add_expr
+	|shift_expr SHL add_expr { $$ = new_binary_node(SHL,$1,$3); }
+	|shift_expr SHR add_expr { $$ = new_binary_node(SHR,$1,$3); }
 	;
 
 rel_expr
 	:shift_expr
-	|rel_expr '<' shift_expr
-	|rel_expr '>' shift_expr
-	|rel_expr LTEQ shift_expr
-	|rel_expr GTEQ shift_expr
+	|rel_expr '<' shift_expr { $$ = new_binary_node('<',$1,$3); }
+	|rel_expr '>' shift_expr { $$ = new_binary_node('>',$1,$3); }
+	|rel_expr LTEQ shift_expr { $$ = new_binary_node(LTEQ,$1,$3); }
+	|rel_expr GTEQ shift_expr { $$ = new_binary_node(GTEQ,$1,$3); }
 	;
 
 eq_expr
 	:rel_expr
-	|eq_expr EQEQ rel_expr
-	|eq_expr NOTEQ rel_expr
+	|eq_expr EQEQ rel_expr { $$ = new_binary_node(EQEQ,$1,$3); }
+	|eq_expr NOTEQ rel_expr { $$ = new_binary_node(NOTEQ,$1,$3); }
 	;
 
 and_expr
 	:eq_expr
-	|and_expr '&' eq_expr
+	|and_expr '&' eq_expr { $$ = new_binary_node('&',$1,$3); }
 	;
 
 xor_expr
 	:and_expr
-	|xor_expr '^' and_expr
+	|xor_expr '^' and_expr { $$ = new_binary_node('^',$1,$3); }
 	;
 
 or_expr
 	:xor_expr
-	|or_expr '|' xor_expr
+	|or_expr '|' xor_expr { $$ = new_binary_node('|',$1,$3); }
 	;
 
 log_and_expr
 	:or_expr
-	|log_and_expr LOGAND or_expr
+	|log_and_expr LOGAND or_expr { $$ = new_binary_node(LOGAND,$1,$3); }
 	;
 
 log_or_expr
 	:log_and_expr
-	|log_or_expr LOGOR log_and_expr
+	|log_or_expr LOGOR log_and_expr { $$ = new_binary_node(LOGOR,$1,$3); }
 	;
 
 cond_expr
 	:log_or_expr
-	|log_or_expr '?' expr ':' cond_expr
+	|log_or_expr '?' expr ':' cond_expr { yywarn("cond_expr not implemented"); }
 	;
 
 asgn_expr
 	:cond_expr
-	|unary_expr '=' asgn_expr
-	|unary_expr DIVEQ asgn_expr
-	|unary_expr MODEQ asgn_expr
-	|unary_expr PLUSEQ asgn_expr
-	|unary_expr MINUSEQ asgn_expr
-	|unary_expr SHLEQ asgn_expr
-	|unary_expr SHREQ asgn_expr
-	|unary_expr ANDEQ asgn_expr
-	|unary_expr XOREQ asgn_expr
-	|unary_expr OREQ asgn_expr
+	|unary_expr '=' asgn_expr { $$ = new_asgn_node($1,$3); }
+	|unary_expr TIMESEQ asgn_expr { $$ = new_asgn('*',$1,$3); }
+	|unary_expr DIVEQ asgn_expr { $$ = new_asgn('/',$1,$3);	}
+	|unary_expr MODEQ asgn_expr { $$ = new_asgn('%',$1,$3); }
+	|unary_expr PLUSEQ asgn_expr { $$ = new_asgn('+',$1,$3); }
+	|unary_expr MINUSEQ asgn_expr { $$ = new_asgn('-',$1,$3); }
+	|unary_expr SHLEQ asgn_expr { $$ = new_asgn(SHL,$1,$3); }
+	|unary_expr SHREQ asgn_expr { $$ = new_asgn(SHR,$1,$3); }
+	|unary_expr ANDEQ asgn_expr { $$ = new_asgn('&',$1,$3); }
+	|unary_expr XOREQ asgn_expr { $$ = new_asgn('^',$1,$3); }
+	|unary_expr OREQ asgn_expr { $$ = new_asgn('|',$1,$3); }
 	;
 
 expr
-	:asgn_expr
-	|expr ',' asgn_expr
+	:asgn_expr 
+	|expr ',' asgn_expr { $$ = new_binary_node(',',$1,$3); }
 	;
 
 const_expr
 	//:cond_expr
-	:NUMBER 
+	:NUMBER //{ $$ = new_const_node($1); }
 	;
 
 /* +============+
@@ -546,7 +552,7 @@ labeled_stmt
 compound_stmt
 	:'{' '}'
 	|'{' { 
-		// If compound statement encountered in file scope, it must be a function
+	// If compound statement encountered in file scope, it must be a function
 		if (cur_symtable->scope_type == S_FILE)
 			new_symtable(S_FUNC); 
 		else
@@ -568,7 +574,7 @@ decl_list
 
 expr_stmt
 	:';'
-	|expr ';'
+	|expr ';' { print_expr($1); }
 	;
 
 selection_stmt
@@ -594,6 +600,7 @@ jump_stmt
 	
 %%
 main() {
+	cur_symtable = new_file("<stdin>");
 	yyparse();
 	return 0;
 }
