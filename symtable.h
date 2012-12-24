@@ -38,7 +38,7 @@ struct symtable {
 };
 
 #define COMMON_NODE_ATTRIBUTES \
-	char nodetype
+	int nodetype
 
 #define COMMON_SYMBOL_ATTRIBUTES \
 	COMMON_NODE_ATTRIBUTES; \
