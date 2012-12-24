@@ -542,7 +542,7 @@ const_expr
    +============+ */
 	
 stmt
-	:compound_stmt { print_stmts($1); }
+	:compound_stmt
 	|expr_stmt
 //	|labeled_stmt
 	|selection_stmt
@@ -568,7 +568,10 @@ compound_stmt
 			new_symtable(S_BLOCK); 
 	} decl_or_stmt_list '}' { 
 		$$ = $3;
- print_stmts($3,0); 
+		if(cur_symtable->scope_type == S_FUNC) {
+			printf("AST dump for function\n");
+			print_stmts($3,0); 
+		}
 		remove_symtable(); 
 	}
 	;
