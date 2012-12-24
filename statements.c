@@ -63,48 +63,61 @@ struct stmt_node *new_while(struct expr_node *check, struct stmt_node *body) {
 	return (struct stmt_node *)node;
 }
 
-void print_stmts(struct stmt_node *node) {
+#define STMT_SPACING(d) for(i=0;i<d;i++) putchar('-')
+void print_stmts(struct stmt_node *node, int depth) {
 	struct for_node *for_node = (struct for_node *)node;
 	struct if_node *if_node = (struct if_node *)node;
 	struct while_node *while_node = (struct while_node *)node;
+	int i;
 
 	if (!node) 
 		return;
 
+	if (node->nodetype != ';')
+		STMT_SPACING(depth);
 	switch(node->nodetype) {
 	case ';':
-		print_expr(node->expr);
+		print_expr(node->expr,depth);
 		break;
 	case FOR:
 		printf("FOR LOOP\n");
+		STMT_SPACING(depth+1);
 		printf("INIT\n");
-		print_stmts(for_node->init);
+		print_stmts(for_node->init,depth+1);
+		STMT_SPACING(depth+1);
 		printf("COND\n");
-		print_stmts(for_node->cond);
+		print_stmts(for_node->cond,depth+1);
+		STMT_SPACING(depth+1);
 		printf("BODY\n");
-		print_stmts(for_node->body);
+		print_stmts(for_node->body,depth+1);
+		STMT_SPACING(depth+1);
 		printf("INCR\n");
-		print_expr(for_node->incr);
+		print_expr(for_node->incr,depth+1);
 		break;
 	case IF:
 		printf("IF\n");
+		STMT_SPACING(depth+1);
 		printf("CHECK\n");
-		print_expr(if_node->check);
+		print_expr(if_node->check,depth+1);
+		STMT_SPACING(depth+1);
 		printf("THEN\n");
-		print_stmts(if_node->then);
+		print_stmts(if_node->then,depth+2);
 		if (if_node->otherwise) {
+			STMT_SPACING(depth+2);
 			printf("ELSE\n");
-			print_stmts(if_node->otherwise);
+			print_stmts(if_node->otherwise,depth+2);
 		}
 		break;
 	case WHILE:
 		printf("WHILE\n");
+		STMT_SPACING(depth+1);
 		printf("CHECK\n");
-		print_expr(while_node->check);
+		print_expr(while_node->check,depth+1);
+		STMT_SPACING(depth+1);
 		printf("BODY\n");
-		print_stmts(while_node->body);
+		print_stmts(while_node->body,depth+1);
 		break;
 	}
-	print_stmts(node->next);
+	print_stmts(node->next,depth);
 }
 

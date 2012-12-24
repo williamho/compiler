@@ -103,7 +103,8 @@ struct expr_node *new_array_access_node(struct expr_node *array, struct expr_nod
 	return (struct expr_node *) node;
 }
 
-struct expr_node *print_expr(struct expr_node *node) {
+#define EXPR_SPACING(d) for(i=0;i<d;i++) putchar(' ')
+void print_expr(struct expr_node *node, int depth) {
 	struct unary_node *unode = (struct unary_node *)node;
 	struct binary_node *bnode = (struct binary_node *)node;
 	struct asgn_node *anode = (struct asgn_node *)node;
@@ -113,28 +114,34 @@ struct expr_node *print_expr(struct expr_node *node) {
 	struct sym_node *symnode = (struct sym_node *)node;
 	struct func_call_node *fnode = (struct func_call_node *)node;
 	struct func_arg_node *fanode = (struct func_arg_node *)node;
+	int i,j = 0;
+	char c;
+	EXPR_SPACING(depth);
+	depth++;
 
 	switch(node->nodetype) {
 	case E_ASGN:
 		printf("ASSIGNMENT\n");
-		print_expr(anode->lval);
-		print_expr(anode->rval);
+		print_expr(anode->lval,depth);
+		print_expr(anode->rval,depth);
 		break;
 	case E_UNARY:
 		printf("UNARY OP '%c' (%d)\n",unode->type,unode->type);
-		print_expr(unode->child);
+		print_expr(unode->child,depth);
 		break;
 	case E_BINARY:
 		printf("BINARY OP '%c' (%d)\n",bnode->type,bnode->type);
-		print_expr(bnode->left);
-		print_expr(bnode->right);
+		print_expr(bnode->left,depth);
+		print_expr(bnode->right,depth);
 		break;
 	case STRING:
-		printf("STRING \"%s\"\n",strnode->str);
-		return;
+		printf("STRING \"");
+		print_escaped_string(strnode->str);
+		printf("\"\n");
+		break;
 	case NUMBER:
 		printf("CONSTANT %d\n",cnode->val);
-		return;
+		break;
 	case IDENT:
 		if (!symnode->sym) {
 			yyerror("invalid symbol\n");
@@ -145,22 +152,28 @@ struct expr_node *print_expr(struct expr_node *node) {
 		break;
 	case E_ARRAY_ACCESS:
 		printf("ARRAY ACCESS\n");
-		printf("array: ");
-		print_expr(arrnode->array);
-		printf("offset: ");
-		print_expr(arrnode->offset);
+		EXPR_SPACING(depth);
+		printf("array\n");
+		print_expr(arrnode->array,depth+1);
+		EXPR_SPACING(depth);
+		printf("offset\n");
+		print_expr(arrnode->offset,depth+1);
 		break;
 	case E_FUNC_CALL:
 		printf("FUNCTION CALL\n");
-		printf("function: ");
-		print_expr(fnode->func);
-		printf("arguments:\n");
-		print_expr((struct expr_node *)fnode->first_arg);
+		EXPR_SPACING(depth+1);
+		printf("function\n");
+		print_expr(fnode->func,depth+2);
+		EXPR_SPACING(depth+1);
+		printf("arguments\n");
+		print_expr((struct expr_node *)fnode->first_arg,depth+2);
 		break;
 	case E_FUNC_ARG:
 		do {
-			printf("FUNCTION ARGUMENT: ");
-			print_expr(fanode->val);
+			printf("FUNCTION ARGUMENT\n");
+			print_expr(fanode->val,depth);
+			if (fanode->next)
+				EXPR_SPACING(depth);
 		}
 		while (fanode = fanode->next);
 		break;

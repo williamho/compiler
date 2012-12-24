@@ -568,7 +568,7 @@ compound_stmt
 			new_symtable(S_BLOCK); 
 	} decl_or_stmt_list '}' { 
 		$$ = $3;
- print_stmts($3); 
+ print_stmts($3,0); 
 		remove_symtable(); 
 	}
 	;

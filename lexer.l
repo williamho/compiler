@@ -269,6 +269,13 @@ void get_real_info() {
 		yylval.num.ntype = N_DOUBLE;
 }
 
+void print_escaped_string(char *p) {
+	int i=0;
+	char c;
+	while(c = p[i++])
+		print_escaped_char(c);
+}
+
 void print_escaped_char(char c) {
 	switch(c) {
 		case '\\': printf("\\\\"); break;

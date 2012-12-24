@@ -93,5 +93,4 @@ struct expr_node *new_asgn(int type, struct expr_node *lval,
 	struct expr_node *rval);
 struct expr_node *new_asgn_node(struct expr_node *lval, 
 	struct expr_node *rval);
-struct expr_node *print_expr(struct expr_node *node);
 #endif
