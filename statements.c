@@ -76,7 +76,7 @@ void print_stmts(struct stmt_node *node, int depth) {
 	if (node->nodetype != ';')
 		STMT_SPACING(depth);
 	switch(node->nodetype) {
-	case ';':
+	case ';': // expression
 		print_expr(node->expr,depth);
 		break;
 	case FOR:

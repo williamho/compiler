@@ -296,19 +296,14 @@ direct_declarator
 	|direct_declarator '(' param_type_list ')' { 
 		$$ = $1;
 		$$->deepest->nodetype = N_FUNC;
-		//add_declarator($$,new_func_node());
 	}
 	|direct_declarator '(' ident_list ')' {
 		$$ = $1; 
 		$$->deepest->nodetype = N_FUNC;
-		//$1->top->nodetype = N_FUNC; 
-		//add_declarator($$,new_func_node());
 	}
 	|direct_declarator '(' ')' {
 		$$ = $1; 
 		$$->deepest->nodetype = N_FUNC;
-		//$1->top->nodetype = N_FUNC; 
-		//add_declarator($$,new_func_node());
 	}
 	;
 	
@@ -571,6 +566,7 @@ compound_stmt
 		if(cur_symtable->scope_type == S_FUNC) {
 			printf("AST dump for function\n");
 			print_stmts($3,0); 
+			stmt_list_to_quads($3);
 		}
 		remove_symtable(); 
 	}
