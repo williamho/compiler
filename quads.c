@@ -36,11 +36,18 @@ struct quad *stmt_to_quad(struct stmt_node *stmt) {
 		break;
 	case WHILE:
 		break;
+	case RETURN:
+		break;
+	case BREAK:
+		break;
+	case CONTINUE:
+		break;
 	}
 }
 
 struct generic_node *expr_to_node(struct expr_node *expr) {
 	struct generic_node *dest, *src1, *src2;
+	struct symbol *sym = ((struct sym_node *)expr)->sym;
 	switch(expr->nodetype) {
 	case E_ASGN:
 		src1 = expr_to_node(((struct asgn_node *)expr)->rval);
@@ -58,7 +65,10 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	case NUMBER:
 		return new_const_node_q(((struct const_node *)expr)->val);
 	case IDENT:
-		return (struct generic_node *)((struct sym_node *)expr)->sym;
+		if (sym->id[0] != '%')
+			rename_sym(sym);
+		
+		return (struct generic_node *)sym;
 	case E_ARRAY_ACCESS:
 		break;
 	case E_FUNC_CALL:
@@ -68,12 +78,22 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	}
 }
 
+struct symbol *rename_sym(struct symbol *sym) {
+	char *tmp_name = malloc(7); // %T00000\0
+	sprintf(tmp_name,"%%T{%d}",tmp_counter++);
+	sym->id = tmp_name;
+	return sym;
+}
+
+struct generic_node *new_block() {
+	
+}
+
 struct generic_node *new_tmp_node() {
 	struct symbol *node = malloc(sizeof(struct symbol));
 	char *tmp_name = malloc(7); // %T00000\0
-	sprintf(tmp_name,"%%T%05d",tmp_counter);
+	sprintf(tmp_name,"%%T{%d}",tmp_counter++);
 	node->id = tmp_name;
-	tmp_counter++;
 	return (struct generic_node *)node;
 }
 
@@ -182,13 +202,17 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 	case '|':
 		new_quad(Q_OR,dest,src1,src2);
 		break;
+
+	// Short circuit operators
 	case LOGAND:
 		new_quad(Q_LOGAND,dest,src1,src2);
 		break;
 	case LOGOR:
 		new_quad(Q_LOGOR,dest,src1,src2);
 		break;
-	case ',': // not implemented
+
+	// Not implemented
+	case ',': 
 		break;
 	}
 	return dest;
@@ -214,9 +238,9 @@ void emit(struct quad *q) {
 
 	printf("%s = ",r->id);
 	if (q->opcode)
-		printf("%d",q->opcode);
+		printf("%d ",q->opcode);
 	if (s1)
-		printf(" %s",s1->id);
+		printf("%s",s1->id);
 	if (s2)
 		printf(" %s",s2->id);
 	putchar('\n');

@@ -19,6 +19,7 @@ struct symbol;
 struct expr_node;
 struct stmt_node;
 
+struct symbol *rename_sym(struct symbol *sym);
 struct quad *new_quad(int opcode, struct generic_node *r, 
 	struct generic_node *s1,struct generic_node *s2);
 struct generic_node *binary_to_node(struct expr_node *expr);

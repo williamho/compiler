@@ -547,7 +547,7 @@ stmt
 
 /*
 labeled_stmt
-	:IDENT ':' stmt { yywarn("switch not implemented"); }
+	:IDENT ':' stmt { yywarn("labels not implemented"); }
 	|CASE const_expr ':' stmt { yywarn("switch not implemented"); }
 	|DEFAULT ':' stmt { yywarn("switch not implemented"); }
 	;
@@ -625,7 +625,7 @@ jump_stmt
 	:GOTO IDENT ';' { yywarn("goto not implemented"); }
 	|CONTINUE ';'  { $$ = new_jump_stmt(CONTINUE); }
 	|BREAK ';' { $$ = new_jump_stmt(BREAK); }
-	|RETURN ';' { $$ = new_jump_stmt(RETURN); }
+	|RETURN ';' { $$ = new_stmt_list(0); $$->nodetype = RETURN; }
 	|RETURN expr ';' { $$ = new_stmt_list($2); $$->nodetype = RETURN; }
 	;
 	

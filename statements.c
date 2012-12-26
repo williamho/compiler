@@ -117,6 +117,17 @@ void print_stmts(struct stmt_node *node, int depth) {
 		printf("BODY\n");
 		print_stmts(while_node->body,depth+1);
 		break;
+	case RETURN:
+		printf("RETURN\n");
+		if (node->expr)
+			print_expr(node->expr,depth+1);
+		break;
+	case BREAK:
+		printf("BREAK\n");
+		break;
+	case CONTINUE:
+		printf("CONTINUE\n");
+		break;
 	}
 	print_stmts(node->next,depth);
 }
