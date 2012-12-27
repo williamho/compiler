@@ -27,6 +27,7 @@ int func_counter;
 struct block *first_bb;
 struct block *cur_bb;
 struct block *newest_bb;
+char *cur_func;
 
 int cur_scope;
 %}
@@ -102,10 +103,15 @@ function_definition
 		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
 		new_declarator_list(dl,$2);
 		new_declaration($1,dl);
-	} compound_stmt { func_counter++; }
+	} compound_stmt
 	//|decl_specs declarator decl_list compound_stmt // K&R
 	|declarator decl_list compound_stmt
-	|declarator compound_stmt // return type int
+	|declarator {
+		cur_func = ((struct symbol *)$1->top)->id;
+		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
+		new_declarator_list(dl,$1);
+		new_declaration(new_spec(TS,TS_INT),dl);
+	} compound_stmt  // return type int
 	;
 
 /* +==============+
@@ -563,7 +569,12 @@ labeled_stmt
 */
 
 compound_stmt
-	:'{' '}' {}
+	:'{' '}' {
+		$$ = new_jump_stmt(RETURN);
+		stmt_list_to_quads($$);
+		new_function(cur_func);
+		print_quads();
+	}
 	|'{' { 
 	// If compound statement encountered in file scope, it must be a function
 		if (cur_symtable->scope_type == S_FILE)
@@ -573,11 +584,11 @@ compound_stmt
 	} decl_or_stmt_list '}' { 
 		$$ = $3;
 		if(cur_symtable->scope_type == S_FUNC) {
+			add_stmt_list($$,new_jump_stmt(RETURN));
 			printf("AST dump for function\n");
 			print_stmts($3,0); 
 			stmt_list_to_quads($3);
-			cur_bb = newest_bb;
-			new_quad(Q_RETURN,0,0,0);
+			new_function(cur_func);
 			print_quads();
 		}
 		remove_symtable(); 

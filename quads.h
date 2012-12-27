@@ -4,15 +4,13 @@
 
 enum quad_opcodes {
 	Q_MOV=1, Q_LOAD, Q_LEA, Q_STORE,
-	Q_BR, Q_CMP,
-
-	Q_BRGT, Q_BRLT, Q_BRGE, Q_BRLE, Q_BREQ, Q_BRNE,
+	Q_BR, Q_CMP, Q_BRGT, Q_BRLT, Q_BRGE, Q_BRLE, Q_BREQ, Q_BRNE,
 	
 	Q_ADD, Q_SUB, Q_MUL, Q_DIV, Q_MOD, 
 	Q_AND, Q_XOR, Q_OR, Q_LOGAND, Q_LOGOR, 
 	Q_NOT, Q_LOGNOT, Q_SHL, Q_SHR,
 
-	Q_FUNC_CALL, Q_FUNC_ARC, Q_RETURN
+	Q_FUNC_CALL, Q_FUNC_ARC, Q_RETURN, Q_CONTINUE
 };
 
 struct quad {
@@ -36,6 +34,7 @@ struct symbol;
 struct expr_node;
 struct stmt_node;
 
+void new_function(char *name);
 struct symbol *rename_sym(struct symbol *sym);
 struct quad *new_quad(int opcode, struct generic_node *r, 
 	struct generic_node *s1,struct generic_node *s2);
@@ -50,7 +49,8 @@ void print_bb(struct block *bb);
 void link_bb(struct block *bb1, struct block *bb2);
 void set_tmp_bool(int opcode, struct generic_node *tmp);
 
-void new_func();
+void gen_while(struct stmt_node *stmt);
+char *opcode_string(int opcode);
 struct block *new_block();
 struct generic_node *new_tmp_node();
 #endif

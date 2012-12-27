@@ -26,7 +26,6 @@ void stmt_list_to_quads(struct stmt_node *stmt) {
 		stmt_to_quad(stmt);
 	}
 	while (stmt = stmt->next);
-	new_quad(Q_RETURN,0,0,0);
 }
 
 struct quad *stmt_to_quad(struct stmt_node *stmt) {
@@ -44,8 +43,10 @@ struct quad *stmt_to_quad(struct stmt_node *stmt) {
 		gen_if(stmt);
 		break;
 	case WHILE:
+		gen_while(stmt);
 		break;
 	case RETURN:
+		new_quad(Q_RETURN,0,0,0);
 		break;
 	case BREAK:
 		break;
@@ -76,6 +77,22 @@ void gen_if(struct stmt_node *stmt) {
 		link_bb(cur_bb,bn);
 	}
 	cur_bb = bn;
+}
+
+void gen_while(struct stmt_node *stmt) {
+	struct while_node *node = (struct while_node *)stmt;
+
+	struct block *check, *body, *after;
+	check = new_block();
+	body = new_block();
+	after = new_block();
+
+	cur_bb = check;
+	gen_condexpr(node->check,body,after);
+	cur_bb = body;
+	stmt_list_to_quads(node->body);
+	link_bb(cur_bb,check);
+	cur_bb = after;
 }
 
 void link_bb(struct block *bb1, struct block *bb2) {
@@ -184,12 +201,6 @@ struct symbol *rename_sym(struct symbol *sym) {
 	sprintf(tmp_name,"%%T%d",tmp_counter++);
 	sym->id = tmp_name;
 	return sym;
-}
-
-void new_func() {
-	func_counter++;
-	block_counter = 1;
-	tmp_counter = 1;
 }
 
 struct block *new_block() {
@@ -390,16 +401,19 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 	struct stmt_node *stmt;
 	// Short circuit operators
 	case LOGAND:
+		yyerror("short circuit operators not implented");
 		/*stmt = new_if(e->left,new_stmt_list(e->right),0);*/
 		/*gen_if(stmt);*/
 		new_quad(Q_LOGAND,dest,src1,src2);
 		break;
 	case LOGOR:
+		yyerror("short circuit operators not implented");
 		new_quad(Q_LOGOR,dest,src1,src2);
 		break;
 
 	// Not implemented
 	case ',': 
+		yyerror("comma operator not implented");
 		break;
 	}
 	return dest;
@@ -441,6 +455,14 @@ void print_quads() {
 	while (bb = bb->next);
 }
 
+void new_function(char *name) {
+	cur_bb = 0;
+	func_counter++;
+	block_counter = 1;
+	tmp_counter = 1;
+	printf("%s:",name);
+}
+
 void emit(struct quad *q) {
 	struct symbol *r, *s1, *s2;
 	r = (struct symbol *)q->result;
@@ -450,11 +472,46 @@ void emit(struct quad *q) {
 	if (r)
 		printf("%s = ",r->id);
 	if (q)
-		printf("%d ",q->opcode);
+		printf("%s ",opcode_string(q->opcode));
 	if (s1)
 		printf("%s",s1->id);
 	if (s2)
 		printf(",%s",s2->id);
 	putchar('\n');
+}
+
+char *opcode_string(int opcode) {
+	switch(opcode) {
+	case Q_MOV: 	return "MOV";
+	case Q_LOAD: 	return "LOAD";
+	case Q_LEA: 	return "LEA";
+	case Q_STORE: 	return "STORE";
+	case Q_BR: 	return "BR";
+	case Q_CMP: 	return "CMP";
+	case Q_BRGT: 	return "BRGT";
+	case Q_BRLT: 	return "BRLT";
+	case Q_BRGE: 	return "BRGE";
+	case Q_BRLE: 	return "BRLE";
+	case Q_BREQ: 	return "BREQ";
+	case Q_BRNE: 	return "BRNE";
+	case Q_ADD: 	return "ADD";
+	case Q_SUB: 	return "SUB";
+	case Q_MUL: 	return "MUL";
+	case Q_DIV: 	return "DIV";
+	case Q_MOD: 	return "MOD";
+	case Q_AND: 	return "AND";
+	case Q_XOR: 	return "XOR";
+	case Q_OR: 	return "OR";
+	case Q_LOGAND: 	return "LOGAND";
+	case Q_LOGOR: 	return "LOGOR";
+	case Q_NOT: 	return "NOT";
+	case Q_LOGNOT: 	return "LOGNOT";
+	case Q_SHL: 	return "SHL";
+	case Q_SHR: 	return "SHR";
+	case Q_FUNC_CALL: 	return "FUNC_CALL";
+	case Q_FUNC_ARC: 	return "FUNC_ARC";
+	case Q_RETURN: 	return "RETURN";
+	default: 	return "";
+	}
 }
 
