@@ -572,6 +572,7 @@ compound_stmt
 			printf("AST dump for function\n");
 			print_stmts($3,0); 
 			stmt_list_to_quads($3);
+			print_quads();
 		}
 		remove_symtable(); 
 	}
