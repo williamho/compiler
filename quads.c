@@ -98,6 +98,9 @@ gen_condexpr(struct expr_node *e, struct block *bt,
 		case NOTEQ: opcode = Q_BRNE; break;
 		case LOGAND: break; //TODO
 		case LOGOR: break; 
+		default:
+			new_quad(Q_CMP,0,node,new_const_node_q(0));
+			opcode = Q_BRNE;
 		}
 	}
 	else {
@@ -121,7 +124,7 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 			new_quad(Q_STORE,0,src1,dest);
 
 		//if (src1->nodetype == N_CONST)
-			new_quad(Q_MOV,dest,src1,0); // vs load
+		new_quad(Q_MOV,dest,src1,0); // vs load
 		return src1;
 	case E_UNARY:
 		return unary_to_node(expr);
@@ -150,6 +153,7 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 struct symbol *rename_sym(struct symbol *sym) {
 	char *tmp_name;
 
+	//TODO: when generating target code, change this to indicate that it is a local variable
 	return sym; //debug
 		
 	tmp_name = malloc(16);
@@ -191,6 +195,7 @@ struct generic_node *new_tmp_node() {
 	char *tmp_name = malloc(16);
 	sprintf(tmp_name,"%%T%d",tmp_counter++);
 	node->id = tmp_name;
+	node->nodetype = N_INT;
 	return (struct generic_node *)node;
 }
 
@@ -249,15 +254,16 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 	struct generic_node *tmp, *tmp2;
 	int type1, type2, type_tmp;
 
-	type1 = (src1->nodetype==N_CONST) ? 
+	type1 = (src1->nodetype==N_CONST || src1->nodetype==N_INT) ? 
 			N_INT : ((struct symbol *)src1)->type->nodetype;
-	type2 = (src2->nodetype==N_CONST) ? 
+	type2 = (src2->nodetype==N_CONST || src2->nodetype==N_INT) ? 
 			N_INT : ((struct symbol *)src2)->type->nodetype;
 
 	// normal arithmetic
 	if (type1 == N_INT && type2 == N_INT)
 	{
 		new_quad(opcode,dest,src1,src2);
+		/*new_quad(Q_ADD,dest,src1,src2);*/
 		return dest;
 	}
 	if (type1 == N_INT && (type2 == N_ARR || type2 == N_PTR))
@@ -267,6 +273,7 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 	}
 	if ((type1 == N_PTR || type1 == N_ARR) && type2 == N_INT) {
 		tmp = new_tmp_node();
+		tmp->nodetype = N_PTR;
 
 		if (type1 == N_ARR && ((struct arr_node *) // if array of arrays
 			((struct symbol *)src1)->type)->base->nodetype == N_ARR)

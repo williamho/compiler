@@ -21,7 +21,7 @@ enum node_types {
 	N_STRUCT, N_UNION, N_ENUM, N_TYPEDEF, 
 	
 	N_PTR, N_ARR, N_FUNC, N_TYPENAME, N_VAR, N_STRUCT_MEM,
-	N_CONST
+	N_CONST, N_TMP,
 };
 
 // symtable_map maps file names to file-scope symbol tables
