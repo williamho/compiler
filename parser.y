@@ -22,6 +22,7 @@ int yyparse(void);
 int line_num;
 char filename[MAX_STR_LEN];
 struct symtable *cur_symtable;
+int func_counter;
 
 int cur_scope;
 %}
@@ -97,7 +98,7 @@ function_definition
 		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
 		new_declarator_list(dl,$2);
 		new_declaration($1,dl);
-	} compound_stmt
+	} compound_stmt { func_counter++; }
 	//|decl_specs declarator decl_list compound_stmt // K&R
 	|declarator decl_list compound_stmt
 	|declarator compound_stmt // return type int
@@ -411,7 +412,11 @@ primary_expr
 
 postfix_expr
 	:primary_expr
-	|postfix_expr '[' expr ']' { $$ = new_array_access_node($1,$3); }
+	/*|postfix_expr '[' expr ']' { $$ = new_array_access_node($1,$3); }*/
+	|postfix_expr '[' expr ']' { 
+		struct expr_node *tmp = new_binary_node('+',$1,$3); 
+		$$ = new_unary_node('*',tmp); // deref
+	}
 	|postfix_expr '(' ')' { $$ = new_func_call_node($1,0); }
 	|postfix_expr '(' arg_expr_list ')' { $$ = new_func_call_node($1,$3); }
 	|postfix_expr '.' IDENT { yywarn("structs not implemented"); }

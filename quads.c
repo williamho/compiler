@@ -8,13 +8,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int func_counter = 0;
-int tmp_counter = 0;
+int func_counter = 1;
+int block_counter = 1;
+int tmp_counter = 1;
 
 void stmt_list_to_quads(struct stmt_node *stmt) {
 	if (!stmt)
 		return;
 
+	new_block();
 	do {
 		stmt_to_quad(stmt);
 	}
@@ -48,11 +50,25 @@ struct quad *stmt_to_quad(struct stmt_node *stmt) {
 struct generic_node *expr_to_node(struct expr_node *expr) {
 	struct generic_node *dest, *src1, *src2;
 	struct symbol *sym = ((struct sym_node *)expr)->sym;
+	struct array_access_node *arrnode = (struct array_access_node *)expr;
+	
+	// Array access
+	/*
+	struct generic_node *arr_offset = expr_to_node(arrnode->offset);
+	struct generic_node *base = new_tmp_node();
+	struct generic_node *offset_bytes = new_tmp_node();
+	struct generic_node *ret = new_tmp_node();
+	*/
+
 	switch(expr->nodetype) {
 	case E_ASGN:
 		src1 = expr_to_node(((struct asgn_node *)expr)->rval);
 		dest = expr_to_node(((struct asgn_node *)expr)->lval);
-		new_quad(Q_ASGN,dest,src1,0);
+
+		if (src1->nodetype == N_CONST)
+			new_quad(Q_MOV,dest,src1,0);
+		else
+			new_quad(Q_LOAD,dest,src1,0);
 		return src1;
 	case E_UNARY:
 		return unary_to_node(expr);
@@ -65,11 +81,11 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	case NUMBER:
 		return new_const_node_q(((struct const_node *)expr)->val);
 	case IDENT:
-		if (sym->id[0] != '%')
+		if (sym->id[0] != '%' && sym->scope->scope_type != S_FILE)
 			rename_sym(sym);
-		
 		return (struct generic_node *)sym;
 	case E_ARRAY_ACCESS:
+		// note: not actually used; array access converted to ptr arith
 		break;
 	case E_FUNC_CALL:
 		break;
@@ -79,20 +95,36 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 }
 
 struct symbol *rename_sym(struct symbol *sym) {
-	char *tmp_name = malloc(7); // %T00000\0
-	sprintf(tmp_name,"%%T{%d}",tmp_counter++);
+	char *tmp_name;
+
+	return sym; //debug
+		
+	tmp_name = malloc(16);
+	if (sym->type->nodetype == N_ARR)
+		tmp_counter += get_size_of_arr(sym->type)/4;
+	sprintf(tmp_name,"%%T%d",tmp_counter++);
 	sym->id = tmp_name;
 	return sym;
 }
 
+void new_func() {
+	func_counter++;
+	block_counter = 1;
+	tmp_counter = 1;
+}
+
 struct generic_node *new_block() {
-	
+	struct symbol *node = malloc(sizeof(struct symbol));
+	char *tmp_name = malloc(10);
+	sprintf(tmp_name,".BB%d.%d",func_counter,block_counter++);
+	node->id = tmp_name;
+	return (struct generic_node *)node;
 }
 
 struct generic_node *new_tmp_node() {
 	struct symbol *node = malloc(sizeof(struct symbol));
-	char *tmp_name = malloc(7); // %T00000\0
-	sprintf(tmp_name,"%%T{%d}",tmp_counter++);
+	char *tmp_name = malloc(10);
+	sprintf(tmp_name,"%%T%d",tmp_counter++);
 	node->id = tmp_name;
 	return (struct generic_node *)node;
 }
@@ -102,6 +134,7 @@ struct generic_node *new_const_node_q(int val) {
 	char *const_name = malloc(10); 
 	sprintf(const_name,"%d",val);
 	node->id = const_name;
+	node->nodetype = N_CONST;
 	return (struct generic_node *)node;
 }
 
@@ -124,13 +157,13 @@ struct generic_node *unary_to_node(struct expr_node *expr) {
 	case E_POSTDEC:
 		break;
 	case '&':
-		new_quad(Q_ADDRESSOF,dest,src,0);
+		// address of
 		break;
 	case '!':
 		new_quad(Q_LOGNOT,dest,src,0);
 		break;
 	case '*':
-		new_quad(Q_DEREF,dest,src,0);
+		new_quad(Q_LOAD,dest,src,0);
 		break;
 	case '+': // do nothing
 		return src;
@@ -143,6 +176,61 @@ struct generic_node *unary_to_node(struct expr_node *expr) {
 		break;
 	}
 	return dest;
+}
+
+struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest, 
+	struct generic_node *src1, struct generic_node *src2) 
+{
+	struct generic_node *tmp, *tmp2;
+	int type1, type2, type_tmp;
+
+	type1 = (src1->nodetype==N_CONST) ? 
+			N_INT : ((struct symbol *)src1)->type->nodetype;
+	type2 = (src2->nodetype==N_CONST) ? 
+			N_INT : ((struct symbol *)src2)->type->nodetype;
+
+	// normal arithmetic
+	if (type1 == N_INT && type2 == N_INT)
+	{
+		new_quad(opcode,dest,src1,src2);
+		return dest;
+	}
+	if (type1 == N_INT && (type2 == N_ARR || type2 == N_PTR))
+	{ 
+		tmp = src1; src1 = src2; src2 = tmp; // swap nodes
+		type_tmp = type1; type1 = type2; type2 = type_tmp; // swap types
+	}
+	if ((type1 == N_PTR || type1 == N_ARR) && type2 == N_INT) {
+		tmp = new_tmp_node();
+
+		if (type1 == N_ARR && ((struct arr_node *) // if array of arrays
+			((struct symbol *)src1)->type)->base->nodetype == N_ARR)
+		{
+			// doesn't work.
+			yyerror("multidimensional arrays not supported");
+			exit(-1);
+			new_quad(Q_MUL,tmp,src2,new_const_node_q(
+				get_size_of_arr(((struct arr_node *)
+				((struct symbol *)src1)->type))));  // ugh
+		}
+		else
+			new_quad(Q_MUL,tmp,src2,new_const_node_q(4)); // sizeof ptr
+
+		/*
+		tmp2 = new_tmp_node();
+		new_quad(Q_LEA,tmp2,tmp,0);
+		new_quad(opcode,dest,src1,tmp2);
+		*/
+		new_quad(opcode,dest,src1,tmp);
+		return dest;
+	}
+}
+
+int get_size_of_arr(struct arr_node *a) {
+	if (a->base->nodetype == N_INT || a->base->nodetype == N_PTR) 
+		return a->size * 4;
+	else if (a->base->nodetype == N_ARR)
+		return a->size * get_size_of_arr((struct arr_node *)(a->base));
 }
 
 struct generic_node *binary_to_node(struct expr_node *expr) {
@@ -164,10 +252,12 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 		new_quad(Q_MOD,dest,src1,src2);
 		break;
 	case '+':
-		new_quad(Q_ADD,dest,src1,src2);
+		ptr_arithmetic(Q_ADD,dest,src1,src2);
+		/*new_quad(Q_ADD,dest,src1,src2);*/
 		break;
 	case '-':
-		new_quad(Q_SUB,dest,src1,src2);
+		ptr_arithmetic(Q_SUB,dest,src1,src2);
+		/*new_quad(Q_SUB,dest,src1,src2);*/
 		break;
 	case SHL: // not implemented
 		new_quad(Q_SHL,dest,src1,src2);
@@ -236,13 +326,17 @@ void emit(struct quad *q) {
 	s1 = (struct symbol *)q->src1;
 	s2 = (struct symbol *)q->src2;
 
+	if (r->id[0] == '.') { // block
+		printf("%s:\n",r->id);
+		return;
+	}
+
 	printf("%s = ",r->id);
-	if (q->opcode)
-		printf("%d ",q->opcode);
+	printf("%d ",q->opcode);
 	if (s1)
 		printf("%s",s1->id);
 	if (s2)
-		printf(" %s",s2->id);
+		printf(",%s",s2->id);
 	putchar('\n');
 }
 
