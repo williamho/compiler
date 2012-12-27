@@ -12,7 +12,7 @@ enum quad_opcodes {
 	Q_AND, Q_XOR, Q_OR, Q_LOGAND, Q_LOGOR, 
 	Q_NOT, Q_LOGNOT, Q_SHL, Q_SHR,
 
-	Q_FUNC_CALL, Q_FUNC_ARC, 
+	Q_FUNC_CALL, Q_FUNC_ARC, Q_RETURN
 };
 
 struct quad {
@@ -48,6 +48,7 @@ void emit(struct quad *q);
 void gen_if(struct stmt_node *stmt);
 void print_bb(struct block *bb);
 void link_bb(struct block *bb1, struct block *bb2);
+void set_tmp_bool(int opcode, struct generic_node *tmp);
 
 void new_func();
 struct block *new_block();

@@ -26,6 +26,7 @@ void stmt_list_to_quads(struct stmt_node *stmt) {
 		stmt_to_quad(stmt);
 	}
 	while (stmt = stmt->next);
+	new_quad(Q_RETURN,0,0,0);
 }
 
 struct quad *stmt_to_quad(struct stmt_node *stmt) {
@@ -81,12 +82,33 @@ void link_bb(struct block *bb1, struct block *bb2) {
 	new_quad(Q_BR,0,(struct generic_node *)bb2,0);
 }
 
+void set_tmp_bool(int opcode, struct generic_node *tmp) {
+	struct block *bt, *bf, *bn;
+
+	bt = new_block();
+	bf = new_block();
+	bn = new_block();
+	new_quad(opcode,0,(struct generic_node *)bt,(struct generic_node *)bf);
+	cur_bb = bt;
+	new_quad(Q_MOV,tmp,new_const_node_q(1),0);
+	link_bb(cur_bb,bn);
+	cur_bb = bf;
+	new_quad(Q_MOV,tmp,new_const_node_q(0),0);
+	link_bb(cur_bb,bn);
+	cur_bb = bn;
+}
+
 gen_condexpr(struct expr_node *e, struct block *bt, 
 	struct block *bf) 
 {
 	struct generic_node *node = expr_to_node(e);
 	struct binary_node *bn = (struct binary_node *)e;
 	int opcode;
+
+	// DEBUG!!!!!
+	new_quad(Q_CMP,0,node,new_const_node_q(0));
+	new_quad(Q_BRNE,0,(struct generic_node *)bt,(struct generic_node *)bf);
+	return;
 
 	if (e->nodetype == E_BINARY) {
 		switch(bn->type) {
@@ -321,11 +343,9 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 		break;
 	case '+':
 		ptr_arithmetic(Q_ADD,dest,src1,src2);
-		/*new_quad(Q_ADD,dest,src1,src2);*/
 		break;
 	case '-':
 		ptr_arithmetic(Q_SUB,dest,src1,src2);
-		/*new_quad(Q_SUB,dest,src1,src2);*/
 		break;
 	case SHL: // not implemented
 		new_quad(Q_SHL,dest,src1,src2);
@@ -335,21 +355,27 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 		break;
 	case '>':
 		new_quad(Q_CMP,0,src1,src2);
+		set_tmp_bool(Q_BRGT,dest);
 		break;
 	case '<':
 		new_quad(Q_CMP,0,src1,src2);
+		set_tmp_bool(Q_BRLT,dest);
 		break;
 	case GTEQ:
 		new_quad(Q_CMP,0,src1,src2);
+		set_tmp_bool(Q_BRGE,dest);
 		break;
 	case LTEQ:
 		new_quad(Q_CMP,0,src1,src2);
+		set_tmp_bool(Q_BRLE,dest);
 		break;
 	case EQEQ:
 		new_quad(Q_CMP,0,src1,src2);
+		set_tmp_bool(Q_BREQ,dest);
 		break;
 	case NOTEQ:
 		new_quad(Q_CMP,0,src1,src2);
+		set_tmp_bool(Q_BRNE,dest);
 		break;
 	case '&':
 		new_quad(Q_AND,dest,src1,src2);
@@ -361,8 +387,11 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 		new_quad(Q_OR,dest,src1,src2);
 		break;
 
+	struct stmt_node *stmt;
 	// Short circuit operators
 	case LOGAND:
+		/*stmt = new_if(e->left,new_stmt_list(e->right),0);*/
+		/*gen_if(stmt);*/
 		new_quad(Q_LOGAND,dest,src1,src2);
 		break;
 	case LOGOR:

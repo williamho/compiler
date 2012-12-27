@@ -9,6 +9,7 @@
 #include "declarations.h"
 #include "statements.h"
 #include "expressions.h"
+#include "quads.h"
 #include "file_info.h"
 
 #define CHECK_ARR_SIZE(n) \
@@ -23,6 +24,9 @@ int line_num;
 char filename[MAX_STR_LEN];
 struct symtable *cur_symtable;
 int func_counter;
+struct block *first_bb;
+struct block *cur_bb;
+struct block *newest_bb;
 
 int cur_scope;
 %}
@@ -572,6 +576,8 @@ compound_stmt
 			printf("AST dump for function\n");
 			print_stmts($3,0); 
 			stmt_list_to_quads($3);
+			cur_bb = newest_bb;
+			new_quad(Q_RETURN,0,0,0);
 			print_quads();
 		}
 		remove_symtable(); 
