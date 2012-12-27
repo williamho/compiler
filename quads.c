@@ -14,18 +14,40 @@ int tmp_counter = 1;
 struct block *first_bb = 0;
 struct block *cur_bb = 0;
 struct block *newest_bb = 0;
+struct postincdec_queue *postqueue;
 
 void stmt_list_to_quads(struct stmt_node *stmt) {
 	if (!stmt)
 		return;
 
+	postqueue = calloc(1,sizeof(struct postincdec_queue));
+	postqueue->last = postqueue;
 	if (!cur_bb)
 		first_bb = cur_bb = newest_bb = new_block();
 
 	do {
 		stmt_to_quad(stmt);
+		gen_postincdec();
 	}
 	while (stmt = stmt->next);
+}
+
+void gen_postincdec() {
+	struct postincdec_queue *q;
+	q = postqueue->next;
+	if (!q)
+		return;
+
+	do {
+		if (q->inc)
+			new_quad(Q_ADD,q->src,q->src,new_const_node_q(1));
+		else
+			new_quad(Q_SUB,q->src,q->src,new_const_node_q(1));
+	}
+	while (q = q->next);
+	postqueue->next = 0; 
+	postqueue->last = postqueue;
+	// yes there is a memory leak
 }
 
 struct quad *stmt_to_quad(struct stmt_node *stmt) {
@@ -38,6 +60,7 @@ struct quad *stmt_to_quad(struct stmt_node *stmt) {
 		expr_to_node(stmt->expr);
 		break;
 	case FOR:
+		gen_for(stmt);
 		break;
 	case IF:
 		gen_if(stmt);
@@ -46,11 +69,16 @@ struct quad *stmt_to_quad(struct stmt_node *stmt) {
 		gen_while(stmt);
 		break;
 	case RETURN:
-		new_quad(Q_RETURN,0,0,0);
+		if (stmt->expr)
+			new_quad(Q_RETURN,0,expr_to_node(stmt->expr),0);
+		else
+			new_quad(Q_RETURN,0,0,0);
 		break;
 	case BREAK:
+		yyerror("break not implemented");
 		break;
 	case CONTINUE:
+		yyerror("continue not implemented");
 		break;
 	}
 }
@@ -95,6 +123,16 @@ void gen_while(struct stmt_node *stmt) {
 	cur_bb = after;
 }
 
+void gen_for(struct stmt_node *stmt) {
+	struct for_node *node = (struct for_node *)stmt;
+	struct stmt_node *whilenode;
+
+	stmt_list_to_quads(node->init);
+	add_stmt_list(node->body,new_stmt_list(node->incr));
+	whilenode = new_while(node->cond->expr,node->body);
+	gen_while(whilenode);
+}
+
 void link_bb(struct block *bb1, struct block *bb2) {
 	new_quad(Q_BR,0,(struct generic_node *)bb2,0);
 }
@@ -122,11 +160,12 @@ gen_condexpr(struct expr_node *e, struct block *bt,
 	struct binary_node *bn = (struct binary_node *)e;
 	int opcode;
 
-	// DEBUG!!!!!
+	// evaluate the expression and set a value to 0 or 1 and check that
 	new_quad(Q_CMP,0,node,new_const_node_q(0));
 	new_quad(Q_BRNE,0,(struct generic_node *)bt,(struct generic_node *)bf);
 	return;
 
+	// not used
 	if (e->nodetype == E_BINARY) {
 		switch(bn->type) {
 		case '>': opcode = Q_BRGT; break;
@@ -153,7 +192,7 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	struct generic_node *dest, *src1, *src2;
 	struct symbol *sym = ((struct sym_node *)expr)->sym;
 	struct array_access_node *arrnode = (struct array_access_node *)expr;
-	
+
 	switch(expr->nodetype) {
 	case E_ASGN:
 		src1 = expr_to_node(((struct asgn_node *)expr)->rval);
@@ -183,10 +222,36 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 		// note: not actually used; array access converted to ptr arith
 		break;
 	case E_FUNC_CALL:
+		return get_func_args(expr);
 		break;
 	case E_FUNC_ARG:
 		break;
 	}
+}
+
+struct generic_node *get_func_args(struct expr_node *f) {
+	struct func_call_node *node = (struct func_call_node *)f;
+	struct func_arg_node *arg;
+	struct generic_node *dest;
+	int num_args = 0;
+
+	arg = node->first_arg;
+	do {
+		// count args
+		num_args++;
+	}
+	while (arg = arg->next);
+	new_quad(Q_ARG_BEGIN,0,new_const_node_q(num_args),0);
+
+	arg = node->first_arg;
+	do {
+		new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
+	}
+	while (arg = arg->next);
+
+	new_quad(Q_FUNC_CALL,dest = new_tmp_node(),
+		(struct generic_node *)(((struct sym_node *)(node->func))->sym),0);
+	return dest;
 }
 
 struct symbol *rename_sym(struct symbol *sym) {
@@ -241,6 +306,16 @@ struct generic_node *new_const_node_q(int val) {
 	return (struct generic_node *)node;
 }
 
+struct postincdec_queue *new_postincdec(char inc, struct generic_node *src) {
+	struct postincdec_queue *q = malloc(sizeof(struct postincdec_queue));
+	q->src = src;
+	q->inc = inc;
+	postqueue->last->next = q;
+	postqueue->last = q;
+	q->next = 0;
+	return q;
+}
+
 struct generic_node *unary_to_node(struct expr_node *expr) {
 	struct generic_node *dest, *src;
 	struct unary_node *e = (struct unary_node *)expr;
@@ -256,8 +331,12 @@ struct generic_node *unary_to_node(struct expr_node *expr) {
 		new_quad(Q_SUB,src,src,new_const_node_q(1));
 		break;
 	case E_POSTINC:
+		new_quad(Q_MOV,dest,src,0);
+		new_postincdec(1,src);
 		break;
 	case E_POSTDEC:
+		new_quad(Q_MOV,dest,src,0);
+		new_postincdec(0,src);
 		break;
 	case '&':
 		new_quad(Q_LEA,dest,src,0);
@@ -308,21 +387,22 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 		tmp = new_tmp_node();
 		tmp->nodetype = N_PTR;
 
+		tmp2 = new_tmp_node();
+		new_quad(Q_LEA,tmp2,src1,0);
 		if (type1 == N_ARR && ((struct arr_node *) // if array of arrays
 			((struct symbol *)src1)->type)->base->nodetype == N_ARR)
 		{
 			yyerror("multidimensional arrays not implemented");
 			exit(-1);
-			tmp2 = new_tmp_node();
-			new_quad(Q_LEA,tmp2,src1,0);
 			new_quad(Q_MUL,tmp,src2,new_const_node_q(
 				get_size_of_arr((struct arr_node *)((struct arr_node *)
 				((struct symbol *)src1)->type)->base)));  // ugh
 		}
-		else
+		else {
 			new_quad(Q_MUL,tmp,src2,new_const_node_q(4)); // sizeof ptr
+		}
 
-		new_quad(opcode,dest,src1,tmp);
+		new_quad(opcode,dest,tmp2,tmp);
 		return dest;
 	}
 }
@@ -508,8 +588,9 @@ char *opcode_string(int opcode) {
 	case Q_LOGNOT: 	return "LOGNOT";
 	case Q_SHL: 	return "SHL";
 	case Q_SHR: 	return "SHR";
-	case Q_FUNC_CALL: 	return "FUNC_CALL";
-	case Q_FUNC_ARC: 	return "FUNC_ARC";
+	case Q_FUNC_CALL: 	return "CALL";
+	case Q_FUNC_ARG: 	return "ARG";
+	case Q_ARG_BEGIN: 	return "ARGBEGIN";
 	case Q_RETURN: 	return "RETURN";
 	default: 	return "";
 	}
