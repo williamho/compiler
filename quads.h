@@ -4,10 +4,11 @@
 
 enum quad_opcodes {
 	Q_MOV=1, Q_LOAD, Q_LEA, Q_STORE,
-	Q_JMP, 
+	Q_BR, Q_CMP,
+
+	Q_BRGT, Q_BRLT, Q_BRGE, Q_BRLE, Q_BREQ, Q_BRNE,
 	
 	Q_ADD, Q_SUB, Q_MUL, Q_DIV, Q_MOD, 
-	Q_GT, Q_LT, Q_GTEQ, Q_LTEQ, Q_EQEQ, Q_NOTEQ,
 	Q_AND, Q_XOR, Q_OR, Q_LOGAND, Q_LOGOR, 
 	Q_NOT, Q_LOGNOT, Q_SHL, Q_SHR,
 
@@ -44,7 +45,7 @@ struct generic_node *expr_to_node(struct expr_node *expr);
 struct quad *stmt_to_quad(struct stmt_node *stmt);
 struct generic_node *new_const_node_q(int val);
 void emit(struct quad *q);
-struct generic_node *gen_if(struct stmt_node *stmt);
+void gen_if(struct stmt_node *stmt);
 void print_bb(struct block *bb);
 void link_bb(struct block *bb1, struct block *bb2);
 

@@ -1,5 +1,5 @@
-a: bin/expressions.o bin/symtable.o bin/declarations.o bin/statements.o quads.o bin/lex.yy.o bin/y.tab.o 
-	gcc -g -o a bin/declarations.o bin/symtable.o bin/expressions.o bin/statements.o quads.o bin/y.tab.o bin/lex.yy.o 
+a: bin/expressions.o bin/symtable.o bin/declarations.o bin/statements.o bin/quads.o bin/lex.yy.o bin/y.tab.o 
+	gcc -g -o a bin/declarations.o bin/symtable.o bin/expressions.o bin/statements.o bin/quads.o bin/y.tab.o bin/lex.yy.o 
 
 bin/quads.o: quads.c quads.h
 	gcc -c quads.c -o bin/quads.o

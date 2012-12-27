@@ -53,7 +53,7 @@ struct quad *stmt_to_quad(struct stmt_node *stmt) {
 	}
 }
 
-struct generic_node *gen_if(struct stmt_node *stmt) {
+void gen_if(struct stmt_node *stmt) {
 	struct if_node *node = (struct if_node *)stmt;
 	struct block *bt, *bf, *bn;
 	bt = new_block();
@@ -78,13 +78,33 @@ struct generic_node *gen_if(struct stmt_node *stmt) {
 }
 
 void link_bb(struct block *bb1, struct block *bb2) {
-	new_quad(Q_JMP,0,(struct generic_node *)bb2,0);
+	new_quad(Q_BR,0,(struct generic_node *)bb2,0);
 }
 
-gen_condexpr(struct expr_node *e, struct generic_node *bt, 
-	struct generic_node *bf) 
+gen_condexpr(struct expr_node *e, struct block *bt, 
+	struct block *bf) 
 {
-	
+	struct generic_node *node = expr_to_node(e);
+	struct binary_node *bn = (struct binary_node *)e;
+	int opcode;
+
+	if (e->nodetype == E_BINARY) {
+		switch(bn->type) {
+		case '>': opcode = Q_BRGT; break;
+		case '<': opcode = Q_BRLT; break;
+		case GTEQ: opcode = Q_BRGE; break;
+		case LTEQ: opcode = Q_BRLE; break;
+		case EQEQ: opcode = Q_BREQ; break;
+		case NOTEQ: opcode = Q_BRNE; break;
+		case LOGAND: break; //TODO
+		case LOGOR: break; 
+		}
+	}
+	else {
+		new_quad(Q_CMP,0,node,new_const_node_q(0));
+		opcode = Q_BRNE;
+	}
+	new_quad(opcode,0,(struct generic_node *)bt,(struct generic_node *)bf);
 }
 
 struct generic_node *expr_to_node(struct expr_node *expr) {
@@ -307,22 +327,22 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 		new_quad(Q_SHR,dest,src1,src2);
 		break;
 	case '>':
-		new_quad(Q_GT,dest,src1,src2);
+		new_quad(Q_CMP,0,src1,src2);
 		break;
 	case '<':
-		new_quad(Q_LT,dest,src1,src2);
+		new_quad(Q_CMP,0,src1,src2);
 		break;
 	case GTEQ:
-		new_quad(Q_GTEQ,dest,src1,src2);
+		new_quad(Q_CMP,0,src1,src2);
 		break;
 	case LTEQ:
-		new_quad(Q_LTEQ,dest,src1,src2);
+		new_quad(Q_CMP,0,src1,src2);
 		break;
 	case EQEQ:
-		new_quad(Q_EQEQ,dest,src1,src2);
+		new_quad(Q_CMP,0,src1,src2);
 		break;
 	case NOTEQ:
-		new_quad(Q_NOTEQ,dest,src1,src2);
+		new_quad(Q_CMP,0,src1,src2);
 		break;
 	case '&':
 		new_quad(Q_AND,dest,src1,src2);
@@ -375,13 +395,11 @@ void print_quads() {
 	do {
 		putchar('\n');
 		print_bb(bb);
-		if (!bb->first)
+		if (!(q = bb->first))
 			continue;
 
-		q = bb->first;
-		do {
-			emit(q);
-		}
+		do 
+			emit(q);	
 		while (q = q->next);
 	}
 	while (bb = bb->next);
