@@ -245,18 +245,21 @@ struct generic_node *get_func_args(struct expr_node *f) {
 	int num_args = 0;
 
 	arg = node->first_arg;
-	do {
-		// count args
-		num_args++;
-	}
-	while (arg = arg->next);
-	new_quad(Q_ARG_BEGIN,0,new_const_node_q(num_args),0);
+	if (arg) {
+		do {
+			// count args
+			num_args++;
+		}
+		while (arg = arg->next);
 
-	arg = node->first_arg;
-	do {
-		new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
+		new_quad(Q_ARG_BEGIN,0,new_const_node_q(num_args),0);
+
+		arg = node->first_arg;
+		do {
+			new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
+		}
+		while (arg = arg->next);
 	}
-	while (arg = arg->next);
 
 	new_quad(Q_FUNC_CALL,dest = new_tmp_node(),
 		(struct generic_node *)(((struct sym_node *)(node->func))->sym),0);
@@ -306,7 +309,7 @@ struct generic_node *new_tmp_node() {
 struct generic_node *new_const_node_q(int val) {
 	struct symbol *node = malloc(sizeof(struct symbol));
 	char *const_name = malloc(10); 
-	sprintf(const_name,"$%d",val);
+	sprintf(const_name,"%d",val);
 	node->id = const_name;
 	node->nodetype = N_CONST;
 	return (struct generic_node *)node;
