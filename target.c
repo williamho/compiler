@@ -140,6 +140,19 @@ print_target_from_quad(struct quad *q) {
 		printf("\t%sl %%eax, %%edx\n",(q->opcode == Q_ADD)?"add":"sub");
 		printf("\tmovl %%edx, %s\n",get_name(r));
 		break;
+	case Q_MUL:
+		printf("\tmovl %s, %%eax\n",get_name(s2));
+		printf("\timull %s\n",get_name(s1));
+		printf("\tmovl %%eax, %s\n",get_name(r));
+		break;
+	case Q_DIV:
+	case Q_MOD:
+		printf("\tmovl $0, %%edx\n"); // most significant 4 bytes
+		printf("\tmovl %s, %%eax\n",get_name(s1)); // least sig 4 bytes
+		printf("\tidivl %s\n",get_name(s2));
+		printf("\tmovl %%%s, %s\n",	// edx contains the remainder
+			(q->opcode == Q_DIV)?"eax":"edx",get_name(r));
+		break;
 	default:
 		break;
 	}
