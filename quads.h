@@ -37,7 +37,7 @@ struct func_list {
 	int nodetype
 struct block {
 	COMMON_NODE_ATTRIBUTES;
-	struct generic_node *type;
+	struct generic_node *type; // unused
 	char *id;
 	struct quad *first, *last;
 	struct block *next;

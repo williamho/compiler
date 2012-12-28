@@ -67,7 +67,9 @@ print_functions() {
 		printf("%s:\n",fl->id); // function name
 		printf("\tpushl %%ebp\n");
 		printf("\tmovl %%esp, %%ebp\n");
-		printf("\t.subl $%d, %%esp\n",fl->num_locals*4);
+		printf("\t.subl $%d, %%esp\n",(fl->num_locals+1)*4);
+
+		print_function_body(fl->bb);
 
 		// Function footer
 		printf("\tleave\n\tret\n");
@@ -77,4 +79,43 @@ print_functions() {
 	}
 	putchar('\n');
 }
+
+print_function_body(struct block *bb) {
+	struct quad *q;
+	while (bb) {
+		printf("%s:\n",bb->id);
+		q = bb->first;
+
+		// Go through the quads in the block
+		while (q) {
+			print_target_from_quad(q);
+			q = q->next;
+		}
+
+		// Next basic block
+		bb = bb->next;
+	}
+}
+
+print_target_from_quad(struct quad *q) {
+	struct symbol *r, *s1, *s2;
+	r = (struct symbol *)q->result;
+	s1 = (struct symbol *)q->src1;
+	s2 = (struct symbol *)q->src2;
+
+	switch(q->opcode) {
+	case Q_FUNC_CALL:
+		// handle assignment
+		// PUSH IN REVERSE ORDER
+		printf("\tcall %s\n",s1->id);
+		break;
+	case Q_FUNC_ARG:
+		printf("\tmovl %s,%%eax\n",s1->id);
+		printf("\tpushl %%eax\n");
+		break;
+	default:
+		break;
+	}
+}
+
 

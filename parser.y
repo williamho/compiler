@@ -433,7 +433,19 @@ initializer_list
    +=============+ */
 	
 primary_expr
-	:IDENT { $$ = new_sym_node(get_sym($1,NS_OTHER,0)); }
+	:IDENT { 
+		// should work for functions not yet defined
+		struct symbol *s;
+		if (!get_sym($1,NS_OTHER,0)) {
+			s =  malloc(sizeof(struct symbol));
+			s = (struct symbol *)new_func_node();
+			s->id = $1;
+			s->file = "<external>";
+			$$ = new_sym_node(s); 
+		}
+		else
+			$$ = new_sym_node(get_sym($1,NS_OTHER,0)); 
+	}
 	|NUMBER { $$ = new_const_node($1.ival); }
 	|STRING { $$ = new_string_node($1); }
 	|'(' expr ')' { $$ = $2; }

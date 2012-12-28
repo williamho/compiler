@@ -246,19 +246,17 @@ struct generic_node *get_func_args(struct expr_node *f) {
 
 	arg = node->first_arg;
 	if (arg) {
-		do {
-			// count args
-			num_args++;
-		}
+		do 
+			num_args++; // count args
 		while (arg = arg->next);
 
 		new_quad(Q_ARG_BEGIN,0,new_const_node_q(num_args),0);
 
-		arg = node->first_arg;
-		do {
+		// Emit the arguments in reverse order, with x86 in mind
+		arg = node->first_arg->last;
+		do 
 			new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
-		}
-		while (arg = arg->next);
+		while (arg = arg->prev);
 	}
 
 	new_quad(Q_FUNC_CALL,dest = new_tmp_node(),
@@ -569,7 +567,7 @@ void emit(struct quad *q) {
 
 	if (r)
 		printf("%s = ",r->id);
-	if (q)
+	if (q->opcode)
 		printf("%s ",opcode_string(q->opcode));
 	if (s1)
 		printf("%s",s1->id);
