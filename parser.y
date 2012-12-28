@@ -12,6 +12,7 @@
 #include "expressions.h"
 #include "quads.h"
 #include "globals.h"
+#include "target.h"
 #include "file_info.h"
 
 #define CHECK_ARR_SIZE(n) \
@@ -588,7 +589,6 @@ compound_stmt
 		$$ = new_jump_stmt(RETURN);
 		new_function(cur_func);
 		stmt_list_to_quads($$);
-		/*print_quads();*/
 	}
 	|'{' { 
 	// If compound statement encountered in file scope, it must be a function
@@ -606,7 +606,6 @@ compound_stmt
 			}
 			new_function(cur_func);
 			stmt_list_to_quads($3);
-			/*print_quads();*/
 		}
 		remove_symtable(); 
 	}
@@ -616,12 +615,6 @@ decl_or_stmt_list
 	:decl_list { $$ = 0; }
 	|stmt_list
 	|decl_list stmt_list { $$ = $2; }
-/*
-	:decl
-	|stmt
-	|decl_or_stmt_list decl
-	|decl_or_stmt_list stmt
-*/
 	;
 
 stmt_list
@@ -638,7 +631,6 @@ expr_stmt
 	:';' {}
 	|expr ';' {
 		$$ = new_stmt_list($1);
-		// print_expr($1);
 	}
 	;
 
@@ -710,6 +702,9 @@ main(int argc, char *argv[]) {
 
 	if (show_quads) 
 		print_all_quads();
+
+	if (show_target)
+		print_target_code();
 	return 0;
 }
 

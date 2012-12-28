@@ -158,6 +158,10 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 	sym->chain = cur_sym;
 	memcpy(new_sym,sym,sizeof(struct symbol));
 	table->s[hashval] = new_sym;
+
+	if(new_sym->nodetype != N_FUNC && new_sym->scope->scope_type == S_FILE)
+		new_global(new_sym);
+
 	free(sym);
 	return new_sym;
 }

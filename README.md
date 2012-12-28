@@ -6,11 +6,11 @@ C compiler using Flex and Bison
 ##Run
 With a file that needs preprocessing (has `#include`s, `#define`s, etc):
 
->    gcc -E inputfile.c | ./a
+    gcc -E inputfile.c | ./a
 
 Otherwise, from some file:
 
->    cat inputfile.c | ./a
+    cat inputfile.c | ./a
 
 Or just run `./a` and type in your code manually.
 

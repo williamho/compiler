@@ -223,7 +223,7 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	case NUMBER:
 		return new_const_node_q(((struct const_node *)expr)->val);
 	case IDENT:
-		if (sym->id[0] != '%' && sym->id[0] != '$')
+		if (sym->id[0] != '%' && sym->scope->scope_type != S_FILE)
 			rename_sym(sym);
 		return (struct generic_node *)sym;
 	case E_ARRAY_ACCESS:
@@ -264,20 +264,12 @@ struct generic_node *get_func_args(struct expr_node *f) {
 
 struct symbol *rename_sym(struct symbol *sym) {
 	char *tmp_name;
-		
-	if (sym->scope->scope_type == S_FILE) {
-		tmp_name = malloc(strlen(sym->id)+2);
-		sprintf(tmp_name,"$%s",sym->id);
-		sym->id = tmp_name;
-		new_global((struct generic_node *)sym);
-	}
-	else {
-		tmp_name = malloc(16);
-		if (sym->type->nodetype == N_ARR)
-			tmp_counter += get_size_of_arr(sym->type)/4;
-		sprintf(tmp_name,"%%T%d",tmp_counter++);
-		sym->id = tmp_name;
-	}
+	tmp_name = malloc(16);
+	if (sym->type->nodetype == N_ARR)
+		tmp_counter += get_size_of_arr(sym->type)/4;
+	sprintf(tmp_name,"%%T%d",tmp_counter++);
+	sym->id = tmp_name;
+
 	return sym;
 }
 
@@ -618,8 +610,6 @@ char *opcode_string(int opcode) {
 }
 
 print_all_quads() {
-	printf("Quads generated:\n");
-
 	// print globals
 	struct global *g = globals;
 	struct symbol *sym;
