@@ -3,6 +3,6 @@
 #define TARGET_H
 
 struct symbol;
-char *get_var_name(struct symbol *sym);
+char *get_name(struct symbol *sym);
 #endif
 

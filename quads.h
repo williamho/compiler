@@ -5,7 +5,9 @@
 enum quad_opcodes {
 	Q_MOV=1, Q_LOAD, Q_LEA, Q_STORE,
 	Q_BR, Q_CMP, Q_BRGT, Q_BRLT, Q_BRGE, Q_BRLE, Q_BREQ, Q_BRNE,
-	
+
+	Q_INC, Q_DEC, 
+
 	Q_ADD, Q_SUB, Q_MUL, Q_DIV, Q_MOD, 
 	Q_AND, Q_XOR, Q_OR, Q_LOGAND, Q_LOGOR, 
 	Q_NOT, Q_LOGNOT, Q_SHL, Q_SHR,
@@ -18,12 +20,6 @@ struct quad {
 	int opcode;
 	struct generic_node *result, *src1, *src2;
 	struct quad *next;
-};
-
-struct postincdec_queue {
-	char inc; // 0 for dec, 1 for inc
-	struct generic_node *src;
-	struct postincdec_queue *next, *last;
 };
 
 struct func_list {

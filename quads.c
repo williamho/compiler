@@ -16,7 +16,6 @@ int tmp_counter = 1;
 struct block *first_bb = 0;
 struct block *cur_bb = 0;
 struct block *newest_bb = 0;
-struct postincdec_queue *postqueue;
 struct func_list *funcs;
 struct string_lit *strings;
 struct global *globals;
@@ -25,37 +24,15 @@ void stmt_list_to_quads(struct stmt_node *stmt) {
 	if (!stmt)
 		return;
 
-	postqueue = calloc(1,sizeof(struct postincdec_queue));
-	postqueue->last = postqueue;
 	if (!cur_bb) {
 		newest_bb = 0;
 		first_bb = cur_bb = newest_bb = new_block();
 		funcs->last->bb = first_bb;
 	}
 
-	do {
+	do
 		stmt_to_quad(stmt);
-		gen_postincdec();
-	}
 	while (stmt = stmt->next);
-}
-
-void gen_postincdec() {
-	struct postincdec_queue *q;
-	q = postqueue->next;
-	if (!q)
-		return;
-
-	do {
-		if (q->inc)
-			new_quad(Q_ADD,q->src,q->src,new_const_node_q(1));
-		else
-			new_quad(Q_SUB,q->src,q->src,new_const_node_q(1));
-	}
-	while (q = q->next);
-	postqueue->next = 0; 
-	postqueue->last = postqueue;
-	// yes there is a memory leak
 }
 
 struct quad *stmt_to_quad(struct stmt_node *stmt) {
@@ -320,16 +297,6 @@ struct generic_node *new_const_node_q(int val) {
 	return (struct generic_node *)node;
 }
 
-struct postincdec_queue *new_postincdec(char inc, struct generic_node *src) {
-	struct postincdec_queue *q = malloc(sizeof(struct postincdec_queue));
-	q->src = src;
-	q->inc = inc;
-	postqueue->last->next = q;
-	postqueue->last = q;
-	q->next = 0;
-	return q;
-}
-
 struct generic_node *unary_to_node(struct expr_node *expr) {
 	struct generic_node *dest, *src;
 	struct unary_node *e = (struct unary_node *)expr;
@@ -339,18 +306,20 @@ struct generic_node *unary_to_node(struct expr_node *expr) {
 
 	switch(e->type) {
 	case E_PREINC:
-		new_quad(Q_ADD,src,src,new_const_node_q(1));
+		new_quad(Q_INC,0,src,0);
+		new_quad(Q_MOV,dest,src,0);
 		break;
 	case E_PREDEC:
-		new_quad(Q_SUB,src,src,new_const_node_q(1));
+		new_quad(Q_DEC,0,src,0);
+		new_quad(Q_MOV,dest,src,0);
 		break;
 	case E_POSTINC:
 		new_quad(Q_MOV,dest,src,0);
-		new_postincdec(1,src);
+		new_quad(Q_INC,0,src,0);
 		break;
 	case E_POSTDEC:
 		new_quad(Q_MOV,dest,src,0);
-		new_postincdec(0,src);
+		new_quad(Q_DEC,0,src,0);
 		break;
 	case '&':
 		new_quad(Q_LEA,dest,src,0);
@@ -597,6 +566,8 @@ char *opcode_string(int opcode) {
 	case Q_BRLE: 	return "BRLE";
 	case Q_BREQ: 	return "BREQ";
 	case Q_BRNE: 	return "BRNE";
+	case Q_INC: 	return "INC";
+	case Q_DEC: 	return "DEC";
 	case Q_ADD: 	return "ADD";
 	case Q_SUB: 	return "SUB";
 	case Q_MUL: 	return "MUL";

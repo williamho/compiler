@@ -116,18 +116,29 @@ print_target_from_quad(struct quad *q) {
 		argnum = 0;
 		break;
 	case Q_FUNC_ARG:
-		printf("\tmovl %s, %%eax\n",get_var_name(s1));
+		printf("\tmovl %s, %%eax\n",get_name(s1));
 		printf("\tmovl %%eax, %d(%%esp)\n",argnum*4);
 		argnum++;
 		break;
 	case Q_FUNC_CALL:
 		printf("\tcall %s\n",s1->id);
 		if (r) 	// assignment
-			printf("\tmovl %%eax, %s\n",get_var_name(r));
+			printf("\tmovl %%eax, %s\n",get_name(r));
 		break;
 	case Q_MOV:
-		printf("\tmovl %s, %%eax\n",get_var_name(s1));
-		printf("\tmovl %%eax, %s\n",get_var_name(r));
+		printf("\tmovl %s, %%eax\n",get_name(s1));
+		printf("\tmovl %%eax, %s\n",get_name(r));
+		break;
+	case Q_INC:
+	case Q_DEC:
+		printf("\t%sl %s\n",(q->opcode == Q_INC)?"inc":"dec",get_name(s1));
+		break;
+	case Q_ADD:
+	case Q_SUB:
+		printf("\tmovl %s, %%eax\n",get_name(s1));
+		printf("\tmovl %s, %%edx\n",get_name(s2));
+		printf("\t%sl %%eax, %%edx\n",(q->opcode == Q_ADD)?"add":"sub");
+		printf("\tmovl %%edx, %s\n",get_name(r));
 		break;
 	default:
 		break;
@@ -136,7 +147,7 @@ print_target_from_quad(struct quad *q) {
 		putchar('\n');
 }
 
-char *get_var_name(struct symbol *sym) {
+char *get_name(struct symbol *sym) {
 	char *name;
 	int tmpnum;
 	if (sym->nodetype == N_CONST) {
