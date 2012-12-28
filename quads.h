@@ -28,6 +28,7 @@ struct postincdec_queue {
 
 struct func_list {
 	char *id;
+	int num_locals;
 	struct func_list *next, *last;
 	struct block *bb;
 };

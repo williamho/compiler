@@ -33,6 +33,7 @@ struct block *newest_bb;
 char *cur_func;
 
 int cur_scope;
+int tmp_counter; // number of local/tmp vars in a function
 struct string_lit *strings;
 struct global *globals;
 struct func_list *funcs;
@@ -114,6 +115,7 @@ function_definition
 		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
 		new_declarator_list(dl,$2);
 		new_declaration($1,dl);
+		new_function(cur_func);
 	} compound_stmt
 	//|decl_specs declarator decl_list compound_stmt // K&R
 	|declarator decl_list compound_stmt
@@ -122,6 +124,7 @@ function_definition
 		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
 		new_declarator_list(dl,$1);
 		new_declaration(new_spec(TS,TS_INT),dl);
+		new_function(cur_func);
 	} compound_stmt  // return type int
 	;
 
@@ -587,8 +590,8 @@ labeled_stmt
 compound_stmt
 	:'{' '}' {
 		$$ = new_jump_stmt(RETURN);
-		new_function(cur_func);
 		stmt_list_to_quads($$);
+		funcs->last->num_locals = tmp_counter;
 	}
 	|'{' { 
 	// If compound statement encountered in file scope, it must be a function
@@ -604,9 +607,9 @@ compound_stmt
 				printf("AST dump for function %s\n",cur_func);
 				print_stmts($3,0); 
 			}
-			new_function(cur_func);
 			stmt_list_to_quads($3);
 		}
+		funcs->last->num_locals = tmp_counter;
 		remove_symtable(); 
 	}
 	;

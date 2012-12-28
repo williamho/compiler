@@ -28,6 +28,7 @@ void stmt_list_to_quads(struct stmt_node *stmt) {
 	postqueue = calloc(1,sizeof(struct postincdec_queue));
 	postqueue->last = postqueue;
 	if (!cur_bb) {
+		newest_bb = 0;
 		first_bb = cur_bb = newest_bb = new_block();
 		funcs->last->bb = first_bb;
 	}
@@ -305,7 +306,7 @@ struct generic_node *new_tmp_node() {
 struct generic_node *new_const_node_q(int val) {
 	struct symbol *node = malloc(sizeof(struct symbol));
 	char *const_name = malloc(10); 
-	sprintf(const_name,"%d",val);
+	sprintf(const_name,"$%d",val);
 	node->id = const_name;
 	node->nodetype = N_CONST;
 	return (struct generic_node *)node;
@@ -542,6 +543,7 @@ void print_quads(struct block *bb) {
 
 struct func_list *new_function(char *name) {
 	struct func_list *fl;
+
 	cur_bb = 0;
 	func_counter++;
 	block_counter = 1;

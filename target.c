@@ -14,12 +14,13 @@ struct global *globals;
 struct func_list *funcs;
 
 print_target_code() {
-	print_functions();
+	print_function_data();
 	print_globals();
 	print_strings();
+	print_functions();
 }
 
-print_functions() {
+print_function_data() {
 	struct func_list *fl = funcs;
 	printf("\t.text\n");
 	while (fl = fl->next) {
@@ -63,6 +64,17 @@ print_strings() {
 	while(s = s->next) {
 		printf(".LC%d:\n",s->num);
 		printf("\t.string\t\"%s\"\n",s->str);
+	}
+	putchar('\n');
+}
+
+print_functions() {
+	struct func_list *fl = funcs;
+	while (fl = fl->next) {
+		printf("%s:\n",fl->id); // function name
+		printf("\tpushl %%ebp\n");
+		printf("\tmovl %%esp, %%ebp\n");
+		printf("\t.subl %d, %%esp\n",fl->num_locals*4);
 	}
 	putchar('\n');
 }
