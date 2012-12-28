@@ -5,10 +5,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "symtable.h"
 #include "declarations.h"
 #include "statements.h"
 #include "expressions.h"
+#include "quads.h"
+#include "globals.h"
 #include "file_info.h"
 
 #define CHECK_ARR_SIZE(n) \
@@ -22,8 +25,19 @@ int yyparse(void);
 int line_num;
 char filename[MAX_STR_LEN];
 struct symtable *cur_symtable;
+int func_counter;
+struct block *first_bb;
+struct block *cur_bb;
+struct block *newest_bb;
+char *cur_func;
 
 int cur_scope;
+struct string_lit *strings;
+struct global *globals;
+struct func_list *funcs;
+
+// options
+char show_ast, show_decl, show_quads, show_target;
 %}
 
 %union{
@@ -61,6 +75,8 @@ int cur_scope;
 	xor_expr or_expr log_and_expr log_or_expr cond_expr asgn_expr expr
 %type <stmt> expr_stmt selection_stmt iteration_stmt jump_stmt stmt_list
 	compound_stmt stmt decl_or_stmt_list 
+
+%expect 1
 
 %token SIZEOF INLINE
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
@@ -100,7 +116,12 @@ function_definition
 	} compound_stmt
 	//|decl_specs declarator decl_list compound_stmt // K&R
 	|declarator decl_list compound_stmt
-	|declarator compound_stmt // return type int
+	|declarator {
+		cur_func = ((struct symbol *)$1->top)->id;
+		struct declarator_list *dl = malloc(sizeof(struct declarator_list));
+		new_declarator_list(dl,$1);
+		new_declaration(new_spec(TS,TS_INT),dl);
+	} compound_stmt  // return type int
 	;
 
 /* +==============+
@@ -173,21 +194,26 @@ type_spec
 struct_or_union_spec
 	:struct_or_union IDENT { 
 			new_symtable(S_STRUCT);
-			printf("struct %s declaration at %s:%d {\n", $2,filename,line_num); 
+			if (show_decl)
+				printf("struct %s declaration at %s:%d {\n", 
+					$2,filename,line_num); 
 		} 
 		'{' struct_decl_list '}' { 
 			$$ = new_spec(TS,TS_STRUCT);
 			$$->node = (struct generic_node *)new_struct($2,1);
-			printf("}\n");
+			if (show_decl)
+				printf("}\n");
 	}
 	|struct_or_union {  // unnamed struct
 		new_symtable(S_STRUCT);
-		printf("struct declaration at %s:%d {\n",filename,line_num); 
+		if (show_decl)
+			printf("struct declaration at %s:%d {\n",filename,line_num); 
 		} 
 		'{' struct_decl_list '}' {
 			$$ = new_spec(TS,TS_STRUCT);
 			$$->node = (struct generic_node *)new_struct(0,1);
-			printf("}\n");
+			if (show_decl)
+				printf("}\n");
 	}
 	|struct_or_union IDENT {
 		// Check if struct/union exists. If not, incomplete declaration.
@@ -296,19 +322,14 @@ direct_declarator
 	|direct_declarator '(' param_type_list ')' { 
 		$$ = $1;
 		$$->deepest->nodetype = N_FUNC;
-		//add_declarator($$,new_func_node());
 	}
 	|direct_declarator '(' ident_list ')' {
 		$$ = $1; 
 		$$->deepest->nodetype = N_FUNC;
-		//$1->top->nodetype = N_FUNC; 
-		//add_declarator($$,new_func_node());
 	}
 	|direct_declarator '(' ')' {
 		$$ = $1; 
 		$$->deepest->nodetype = N_FUNC;
-		//$1->top->nodetype = N_FUNC; 
-		//add_declarator($$,new_func_node());
 	}
 	;
 	
@@ -416,7 +437,11 @@ primary_expr
 
 postfix_expr
 	:primary_expr
-	|postfix_expr '[' expr ']' { $$ = new_array_access_node($1,$3); }
+	/*|postfix_expr '[' expr ']' { $$ = new_array_access_node($1,$3); }*/
+	|postfix_expr '[' expr ']' { 
+		struct expr_node *tmp = new_binary_node('+',$1,$3); 
+		$$ = new_unary_node('*',tmp); // deref
+	}
 	|postfix_expr '(' ')' { $$ = new_func_call_node($1,0); }
 	|postfix_expr '(' arg_expr_list ')' { $$ = new_func_call_node($1,$3); }
 	|postfix_expr '.' IDENT { yywarn("structs not implemented"); }
@@ -552,14 +577,19 @@ stmt
 
 /*
 labeled_stmt
-	:IDENT ':' stmt { yywarn("switch not implemented"); }
+	:IDENT ':' stmt { yywarn("labels not implemented"); }
 	|CASE const_expr ':' stmt { yywarn("switch not implemented"); }
 	|DEFAULT ':' stmt { yywarn("switch not implemented"); }
 	;
 */
 
 compound_stmt
-	:'{' '}' {}
+	:'{' '}' {
+		$$ = new_jump_stmt(RETURN);
+		new_function(cur_func);
+		stmt_list_to_quads($$);
+		/*print_quads();*/
+	}
 	|'{' { 
 	// If compound statement encountered in file scope, it must be a function
 		if (cur_symtable->scope_type == S_FILE)
@@ -569,8 +599,14 @@ compound_stmt
 	} decl_or_stmt_list '}' { 
 		$$ = $3;
 		if(cur_symtable->scope_type == S_FUNC) {
-			printf("AST dump for function\n");
-			print_stmts($3,0); 
+			add_stmt_list($$,new_jump_stmt(RETURN));
+			if (show_ast) {
+				printf("AST dump for function %s\n",cur_func);
+				print_stmts($3,0); 
+			}
+			new_function(cur_func);
+			stmt_list_to_quads($3);
+			/*print_quads();*/
 		}
 		remove_symtable(); 
 	}
@@ -629,13 +665,51 @@ jump_stmt
 	:GOTO IDENT ';' { yywarn("goto not implemented"); }
 	|CONTINUE ';'  { $$ = new_jump_stmt(CONTINUE); }
 	|BREAK ';' { $$ = new_jump_stmt(BREAK); }
-	|RETURN ';' { $$ = new_jump_stmt(RETURN); }
+	|RETURN ';' { $$ = new_stmt_list(0); $$->nodetype = RETURN; }
 	|RETURN expr ';' { $$ = new_stmt_list($2); $$->nodetype = RETURN; }
 	;
 	
 %%
-main() {
+void set_options(int argc, char *argv[]) {
+	char c;
+	while ((c = getopt(argc, argv, "adqt")) != -1) {
+		switch(c) {
+		case 'a': // AST
+			show_ast = 1;
+			break;
+		case 'd': // Declarations
+			show_decl = 1;
+			break;
+		case 'q': // Quads
+			show_quads = 1;
+			break;
+		case 't': // Target
+			show_target = 1;
+			break;
+		default:
+			fprintf(stderr,"Unknown option %c\n",c);
+			break;
+		}
+	}
+	if (!show_ast && !show_decl && !show_quads)
+		show_target = 1;
+}
+
+main(int argc, char *argv[]) {
+	set_options(argc,argv);
 	cur_symtable = new_file("<stdin>");
+	strings = calloc(1,sizeof(struct string_lit));
+	strings->last = strings;
+	globals = calloc(1,sizeof(struct global));
+	globals->last = globals;
+	funcs = calloc(1,sizeof(struct func_list));
+	funcs->last = funcs;
+
 	yyparse();
+	putchar('\n');
+
+	if (show_quads) 
+		print_all_quads();
 	return 0;
 }
+

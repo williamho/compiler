@@ -1,5 +1,6 @@
 /* expressions.c by William Ho */
 #include "expressions.h"
+#include "globals.h"
 #include "declarations.h"
 #include "symtable.h"
 #include "y.tab.h"
@@ -25,7 +26,7 @@ struct expr_node *new_asgn(int type, struct expr_node *lval,
 	struct expr_node *rval) 
 {
 	struct expr_node *node = new_binary_node(type,lval,rval); 
-	return new_binary_node('=',lval,node); 
+	return new_asgn_node(lval,node); 
 }
 
 struct expr_node *new_func_call_node(

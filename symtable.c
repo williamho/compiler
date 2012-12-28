@@ -78,6 +78,7 @@ struct generic_node *new_node(int ntype) {
 		break;
 	}
 	node->nodetype = ntype;
+	return node;
 }
 
 /** Add symbol to symbol table */

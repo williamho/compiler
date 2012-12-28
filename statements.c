@@ -76,7 +76,7 @@ void print_stmts(struct stmt_node *node, int depth) {
 	if (node->nodetype != ';')
 		STMT_SPACING(depth);
 	switch(node->nodetype) {
-	case ';':
+	case ';': // expression
 		print_expr(node->expr,depth);
 		break;
 	case FOR:
@@ -116,6 +116,17 @@ void print_stmts(struct stmt_node *node, int depth) {
 		STMT_SPACING(depth+1);
 		printf("BODY\n");
 		print_stmts(while_node->body,depth+1);
+		break;
+	case RETURN:
+		printf("RETURN\n");
+		if (node->expr)
+			print_expr(node->expr,depth+1);
+		break;
+	case BREAK:
+		printf("BREAK\n");
+		break;
+	case CONTINUE:
+		printf("CONTINUE\n");
 		break;
 	}
 	print_stmts(node->next,depth);
