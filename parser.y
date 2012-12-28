@@ -679,7 +679,7 @@ jump_stmt
 %%
 void set_options(int argc, char *argv[]) {
 	char c;
-	while ((c = getopt(argc, argv, "adqt")) != -1) {
+	while ((c = getopt(argc, argv, "adqtT")) != -1) {
 		switch(c) {
 		case 'a': // AST
 			show_ast = 1;
@@ -693,12 +693,15 @@ void set_options(int argc, char *argv[]) {
 		case 't': // Target
 			show_target = 1;
 			break;
+		case 'T':
+			show_target = 2;
+			break;
 		default:
 			fprintf(stderr,"Unknown option %c\n",c);
 			break;
 		}
 	}
-	if (!show_ast && !show_decl && !show_quads)
+	if (!show_ast && !show_decl && !show_quads && !show_target)
 		show_target = 1;
 }
 

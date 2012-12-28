@@ -19,6 +19,7 @@ Or just run `./a` and type in your code manually.
 * `-d`: show declarations
 * `-q`: show quads
 * `-t`: show target code (x86)
+* `-T`: same as `-t` but also show the quads as comments in target code
 
 Note: if none of the above options are specified, `-t` will be set by default.
 

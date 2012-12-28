@@ -13,6 +13,7 @@
 struct string_lit *strings;
 struct global *globals;
 struct func_list *funcs;
+char show_target;
 
 print_target_code() {
 	print_globals();
@@ -105,6 +106,10 @@ print_target_from_quad(struct quad *q) {
 	s1 = (struct symbol *)q->src1;
 	s2 = (struct symbol *)q->src2;
 
+	if (show_target == 2) {
+		printf("\t# ");
+		emit(q);
+	}
 	switch(q->opcode) {
 	case Q_ARG_BEGIN:
 		printf("\tsubl $%d, %%esp\n",(atoi(s1->id)+1)*4);
@@ -116,13 +121,19 @@ print_target_from_quad(struct quad *q) {
 		argnum++;
 		break;
 	case Q_FUNC_CALL:
-		// handle assignment TODO
-		// PUSH IN REVERSE ORDER
 		printf("\tcall %s\n",s1->id);
+		if (r) 	// assignment
+			printf("\tmovl %%eax, %s\n",get_var_name(r));
+		break;
+	case Q_MOV:
+		printf("\tmovl %s, %%eax\n",get_var_name(s1));
+		printf("\tmovl %%eax, %s\n",get_var_name(r));
 		break;
 	default:
 		break;
 	}
+	if (show_target == 2) 
+		putchar('\n');
 }
 
 char *get_var_name(struct symbol *sym) {
