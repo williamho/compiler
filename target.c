@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include "target.h"
 #include "quads.h"
@@ -67,7 +68,7 @@ print_functions() {
 		printf("%s:\n",fl->id); // function name
 		printf("\tpushl %%ebp\n");
 		printf("\tmovl %%esp, %%ebp\n");
-		printf("\t.subl $%d, %%esp\n",(fl->num_locals+1)*4);
+		printf("\tsubl $%d, %%esp\n",(fl->num_locals+1)*4);
 
 		print_function_body(fl->bb);
 
@@ -97,6 +98,7 @@ print_function_body(struct block *bb) {
 	}
 }
 
+int argnum = 0;
 print_target_from_quad(struct quad *q) {
 	struct symbol *r, *s1, *s2;
 	r = (struct symbol *)q->result;
@@ -104,18 +106,39 @@ print_target_from_quad(struct quad *q) {
 	s2 = (struct symbol *)q->src2;
 
 	switch(q->opcode) {
-	case Q_FUNC_CALL:
-		// handle assignment
-		// PUSH IN REVERSE ORDER
-		printf("\tcall %s\n",s1->id);
+	case Q_ARG_BEGIN:
+		printf("\tsubl $%d, %%esp\n",(atoi(s1->id)+1)*4);
+		argnum = 0;
 		break;
 	case Q_FUNC_ARG:
-		printf("\tmovl %s,%%eax\n",s1->id);
-		printf("\tpushl %%eax\n");
+		printf("\tmovl %s, %%eax\n",get_var_name(s1));
+		printf("\tmovl %%eax, %d(%%esp)\n",argnum*4);
+		argnum++;
+		break;
+	case Q_FUNC_CALL:
+		// handle assignment TODO
+		// PUSH IN REVERSE ORDER
+		printf("\tcall %s\n",s1->id);
 		break;
 	default:
 		break;
 	}
 }
 
+char *get_var_name(struct symbol *sym) {
+	char *name;
+	int tmpnum;
+	if (sym->nodetype == N_CONST) {
+		name = malloc(strlen(sym->id)+2);
+		sprintf(name,"$%s",sym->id);
+		return name;
+	}
+	if (sym->id[0] == '%') { // temp/local var
+		sscanf(sym->id,"%%T%d",&tmpnum);
+		name = malloc(10);
+		sprintf(name,"-%d(%%ebp)",tmpnum*4); // get offset from ebp
+		return name;
+	}
+	return sym->id;
+}
 

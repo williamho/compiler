@@ -252,11 +252,18 @@ struct generic_node *get_func_args(struct expr_node *f) {
 
 		new_quad(Q_ARG_BEGIN,0,new_const_node_q(num_args),0);
 
+		arg = node->first_arg;
+		do 
+			new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
+		while (arg = arg->next);
+
+		/*
 		// Emit the arguments in reverse order, with x86 in mind
 		arg = node->first_arg->last;
 		do 
 			new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
 		while (arg = arg->prev);
+		*/
 	}
 
 	new_quad(Q_FUNC_CALL,dest = new_tmp_node(),
