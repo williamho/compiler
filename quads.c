@@ -8,6 +8,7 @@
 #include "y.tab.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 int func_counter = 0;
 int block_counter = 1;
@@ -17,6 +18,8 @@ struct block *cur_bb = 0;
 struct block *newest_bb = 0;
 struct postincdec_queue *postqueue;
 struct func_list *funcs;
+struct string_lit *strings;
+struct global *globals;
 
 void stmt_list_to_quads(struct stmt_node *stmt) {
 	if (!stmt)
@@ -220,7 +223,7 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	case NUMBER:
 		return new_const_node_q(((struct const_node *)expr)->val);
 	case IDENT:
-		if (sym->id[0] != '%' && sym->scope->scope_type != S_FILE)
+		if (sym->id[0] != '%' && sym->id[0] != '$')
 			rename_sym(sym);
 		return (struct generic_node *)sym;
 	case E_ARRAY_ACCESS:
@@ -261,15 +264,20 @@ struct generic_node *get_func_args(struct expr_node *f) {
 
 struct symbol *rename_sym(struct symbol *sym) {
 	char *tmp_name;
-
-	//TODO: when generating target code, change this to indicate that it is a local variable
-	/*return sym; //debug*/
 		
-	tmp_name = malloc(16);
-	if (sym->type->nodetype == N_ARR)
-		tmp_counter += get_size_of_arr(sym->type)/4;
-	sprintf(tmp_name,"%%T%d",tmp_counter++);
-	sym->id = tmp_name;
+	if (sym->scope->scope_type == S_FILE) {
+		tmp_name = malloc(strlen(sym->id)+2);
+		sprintf(tmp_name,"$%s",sym->id);
+		sym->id = tmp_name;
+		new_global((struct generic_node *)sym);
+	}
+	else {
+		tmp_name = malloc(16);
+		if (sym->type->nodetype == N_ARR)
+			tmp_counter += get_size_of_arr(sym->type)/4;
+		sprintf(tmp_name,"%%T%d",tmp_counter++);
+		sym->id = tmp_name;
+	}
 	return sym;
 }
 
@@ -608,4 +616,37 @@ char *opcode_string(int opcode) {
 	default: 	return "";
 	}
 }
+
+print_all_quads() {
+	printf("Quads generated:\n");
+
+	// print globals
+	struct global *g = globals;
+	struct symbol *sym;
+	while(g = g->next) {
+		sym = (struct symbol *)g->var;
+		printf("GLOBAL %s ",sym->id);
+		if (sym->type->nodetype == N_ARR)
+			printf("%d",get_size_of_arr((struct arr_node *)(sym->type)));
+		else
+			printf("4");
+		putchar('\n');
+	}
+	putchar('\n');
+
+	struct string_lit *s = strings;
+	while(s = s->next) {
+		printf("STRING .LC%d \"%s\"\n",s->num,s->str);
+	}
+	putchar('\n');
+
+	// go through each statement, print quads
+	struct func_list *fl = funcs;
+	while (fl = fl->next) {
+		printf("%s:",fl->id);
+		print_quads(fl->bb);
+		putchar('\n');
+	}
+}
+
 

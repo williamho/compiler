@@ -4,6 +4,8 @@
 #include "declarations.h"
 #include "symtable.h"
 
+char show_decl;
+
 /** Start a new declarator list */
 void new_declarator_list(struct declarator_list *dl, struct declarator *d) {
 	dl->rightmost = dl->leftmost = d;
@@ -111,6 +113,8 @@ void new_declaration(struct decl_spec *d, struct declarator_list *dl) {
 
 /** Print information about a node and its linked nodes, recursively */
 void print_node_info_r(struct generic_node *node) {
+	if (!show_decl)
+		return;
 	struct ptr_node *n = (struct ptr_node *) node;
 	int i, depth = 0;
 	
@@ -134,6 +138,9 @@ void print_node_info_r(struct generic_node *node) {
 
 /** Print into about a node */
 void print_node_info(struct generic_node *node) {
+	if (!show_decl)
+		return;
+
 	struct symbol *n = (struct symbol *)node;
 	switch(node->nodetype) {
 	case N_VAR:

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "symtable.h"
 #include "declarations.h"
 #include "statements.h"
@@ -34,6 +35,9 @@ int cur_scope;
 struct string_lit *strings;
 struct global *globals;
 struct func_list *funcs;
+
+// options
+char show_ast, show_decl, show_quads, show_target;
 %}
 
 %union{
@@ -190,21 +194,26 @@ type_spec
 struct_or_union_spec
 	:struct_or_union IDENT { 
 			new_symtable(S_STRUCT);
-			printf("struct %s declaration at %s:%d {\n", $2,filename,line_num); 
+			if (show_decl)
+				printf("struct %s declaration at %s:%d {\n", 
+					$2,filename,line_num); 
 		} 
 		'{' struct_decl_list '}' { 
 			$$ = new_spec(TS,TS_STRUCT);
 			$$->node = (struct generic_node *)new_struct($2,1);
-			printf("}\n");
+			if (show_decl)
+				printf("}\n");
 	}
 	|struct_or_union {  // unnamed struct
 		new_symtable(S_STRUCT);
-		printf("struct declaration at %s:%d {\n",filename,line_num); 
+		if (show_decl)
+			printf("struct declaration at %s:%d {\n",filename,line_num); 
 		} 
 		'{' struct_decl_list '}' {
 			$$ = new_spec(TS,TS_STRUCT);
 			$$->node = (struct generic_node *)new_struct(0,1);
-			printf("}\n");
+			if (show_decl)
+				printf("}\n");
 	}
 	|struct_or_union IDENT {
 		// Check if struct/union exists. If not, incomplete declaration.
@@ -591,8 +600,10 @@ compound_stmt
 		$$ = $3;
 		if(cur_symtable->scope_type == S_FUNC) {
 			add_stmt_list($$,new_jump_stmt(RETURN));
-			printf("AST dump for function %s\n",cur_func);
-			print_stmts($3,0); 
+			if (show_ast) {
+				printf("AST dump for function %s\n",cur_func);
+				print_stmts($3,0); 
+			}
 			new_function(cur_func);
 			stmt_list_to_quads($3);
 			/*print_quads();*/
@@ -659,7 +670,33 @@ jump_stmt
 	;
 	
 %%
-main() {
+void set_options(int argc, char *argv[]) {
+	char c;
+	while ((c = getopt(argc, argv, "adqt")) != -1) {
+		switch(c) {
+		case 'a': // AST
+			show_ast = 1;
+			break;
+		case 'd': // Declarations
+			show_decl = 1;
+			break;
+		case 'q': // Quads
+			show_quads = 1;
+			break;
+		case 't': // Target
+			show_target = 1;
+			break;
+		default:
+			fprintf(stderr,"Unknown option %c\n",c);
+			break;
+		}
+	}
+	if (!show_ast && !show_decl && !show_quads)
+		show_target = 1;
+}
+
+main(int argc, char *argv[]) {
+	set_options(argc,argv);
 	cur_symtable = new_file("<stdin>");
 	strings = calloc(1,sizeof(struct string_lit));
 	strings->last = strings;
@@ -669,17 +706,10 @@ main() {
 	funcs->last = funcs;
 
 	yyparse();
+	putchar('\n');
 
-	// go through each statement, print quads
-	struct func_list *fl;
-	fl = funcs->next;
-	if (!fl)
-		return -1;
-	do {
-		printf("%s:",fl->id);
-		print_quads(fl->bb);
-		putchar('\n');
-	}
-	while (fl = fl->next);
+	if (show_quads) 
+		print_all_quads();
 	return 0;
 }
+

@@ -60,6 +60,7 @@ char *get_escaped_string(char *p) {
 			write += sprintf(write,"\\%02d",(unsigned char)c);
 		}
 	}
+	*write = '\0';
 	return s;
 }
 
