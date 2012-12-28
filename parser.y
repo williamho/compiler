@@ -10,6 +10,7 @@
 #include "statements.h"
 #include "expressions.h"
 #include "quads.h"
+#include "globals.h"
 #include "file_info.h"
 
 #define CHECK_ARR_SIZE(n) \
@@ -30,6 +31,9 @@ struct block *newest_bb;
 char *cur_func;
 
 int cur_scope;
+struct string_lit *strings;
+struct global *globals;
+struct func_list *funcs;
 %}
 
 %union{
@@ -67,6 +71,8 @@ int cur_scope;
 	xor_expr or_expr log_and_expr log_or_expr cond_expr asgn_expr expr
 %type <stmt> expr_stmt selection_stmt iteration_stmt jump_stmt stmt_list
 	compound_stmt stmt decl_or_stmt_list 
+
+%expect 1
 
 %token SIZEOF INLINE
 %token INDSEL PLUSPLUS MINUSMINUS SHL SHR LTEQ GTEQ EQEQ NOTEQ
@@ -571,9 +577,9 @@ labeled_stmt
 compound_stmt
 	:'{' '}' {
 		$$ = new_jump_stmt(RETURN);
-		stmt_list_to_quads($$);
 		new_function(cur_func);
-		print_quads();
+		stmt_list_to_quads($$);
+		/*print_quads();*/
 	}
 	|'{' { 
 	// If compound statement encountered in file scope, it must be a function
@@ -585,11 +591,11 @@ compound_stmt
 		$$ = $3;
 		if(cur_symtable->scope_type == S_FUNC) {
 			add_stmt_list($$,new_jump_stmt(RETURN));
-			printf("AST dump for function\n");
+			printf("AST dump for function %s\n",cur_func);
 			print_stmts($3,0); 
-			stmt_list_to_quads($3);
 			new_function(cur_func);
-			print_quads();
+			stmt_list_to_quads($3);
+			/*print_quads();*/
 		}
 		remove_symtable(); 
 	}
@@ -655,6 +661,25 @@ jump_stmt
 %%
 main() {
 	cur_symtable = new_file("<stdin>");
+	strings = calloc(1,sizeof(struct string_lit));
+	strings->last = strings;
+	globals = calloc(1,sizeof(struct global));
+	globals->last = globals;
+	funcs = calloc(1,sizeof(struct func_list));
+	funcs->last = funcs;
+
 	yyparse();
+
+	// go through each statement, print quads
+	struct func_list *fl;
+	fl = funcs->next;
+	if (!fl)
+		return -1;
+	do {
+		printf("%s:",fl->id);
+		print_quads(fl->bb);
+		putchar('\n');
+	}
+	while (fl = fl->next);
 	return 0;
 }

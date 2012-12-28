@@ -1,5 +1,5 @@
-a: bin/y.tab.o bin/lex.yy.o bin/expressions.o bin/symtable.o bin/declarations.o bin/statements.o bin/quads.o 
-	gcc -g -o a bin/declarations.o bin/symtable.o bin/expressions.o bin/statements.o bin/quads.o bin/y.tab.o bin/lex.yy.o 
+a: bin/y.tab.o bin/lex.yy.o bin/expressions.o bin/symtable.o bin/declarations.o bin/statements.o bin/quads.o bin/globals.o
+	gcc -g -o a bin/declarations.o bin/symtable.o bin/expressions.o bin/statements.o bin/quads.o bin/y.tab.o bin/lex.yy.o bin/globals.o
 
 bin/y.tab.o: parser.y
 	bison --report=state -d parser.y -y
@@ -19,6 +19,9 @@ bin/expressions.o: expressions.c expressions.h
 
 bin/statements.o: statements.c statements.h
 	gcc -c statements.c -o bin/statements.o
+
+bin/globals.o: globals.c globals.h
+	gcc -c globals.c -o bin/globals.o
 
 bin/lex.yy.o: lexer.l
 	flex lexer.l

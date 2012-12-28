@@ -26,6 +26,12 @@ struct postincdec_queue {
 	struct postincdec_queue *next, *last;
 };
 
+struct func_list {
+	char *id;
+	struct func_list *next, *last;
+	struct block *bb;
+};
+
 #define COMMON_NODE_ATTRIBUTES \
 	int nodetype
 struct block {
@@ -41,7 +47,7 @@ struct symbol;
 struct expr_node;
 struct stmt_node;
 
-void new_function(char *name);
+struct func_list *new_function(char *name);
 struct symbol *rename_sym(struct symbol *sym);
 struct quad *new_quad(int opcode, struct generic_node *r, 
 	struct generic_node *s1,struct generic_node *s2);

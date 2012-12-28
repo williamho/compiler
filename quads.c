@@ -1,5 +1,6 @@
 /* quads.c by William Ho  */
 #include "quads.h"
+#include "globals.h"
 #include "symtable.h"
 #include "statements.h"
 #include "expressions.h"
@@ -8,13 +9,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int func_counter = 1;
+int func_counter = 0;
 int block_counter = 1;
 int tmp_counter = 1;
 struct block *first_bb = 0;
 struct block *cur_bb = 0;
 struct block *newest_bb = 0;
 struct postincdec_queue *postqueue;
+struct func_list *funcs;
 
 void stmt_list_to_quads(struct stmt_node *stmt) {
 	if (!stmt)
@@ -22,8 +24,10 @@ void stmt_list_to_quads(struct stmt_node *stmt) {
 
 	postqueue = calloc(1,sizeof(struct postincdec_queue));
 	postqueue->last = postqueue;
-	if (!cur_bb)
+	if (!cur_bb) {
 		first_bb = cur_bb = newest_bb = new_block();
+		funcs->last->bb = first_bb;
+	}
 
 	do {
 		stmt_to_quad(stmt);
@@ -211,6 +215,7 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 		return binary_to_node(expr);
 		break;
 	case STRING:
+		return new_string(((struct string_node *)expr)->str);
 		break;
 	case NUMBER:
 		return new_const_node_q(((struct const_node *)expr)->val);
@@ -258,7 +263,7 @@ struct symbol *rename_sym(struct symbol *sym) {
 	char *tmp_name;
 
 	//TODO: when generating target code, change this to indicate that it is a local variable
-	return sym; //debug
+	/*return sym; //debug*/
 		
 	tmp_name = malloc(16);
 	if (sym->type->nodetype == N_ARR)
@@ -518,8 +523,8 @@ struct quad *new_quad(int opcode, struct generic_node *r,
 	return q;
 }
 
-void print_quads() {
-	struct block *bb = first_bb;
+void print_quads(struct block *bb) {
+	/*struct block *bb = first_bb;*/
 	struct quad *q;
 
 	do {
@@ -535,12 +540,20 @@ void print_quads() {
 	while (bb = bb->next);
 }
 
-void new_function(char *name) {
+struct func_list *new_function(char *name) {
+	struct func_list *fl;
 	cur_bb = 0;
 	func_counter++;
 	block_counter = 1;
 	tmp_counter = 1;
-	printf("%s:",name);
+
+	fl = malloc(sizeof(struct func_list));
+	fl->next = 0; 
+	fl->last = fl;
+	fl->id = name;
+	funcs->last->next = fl;
+	funcs->last = fl;
+	return fl;
 }
 
 void emit(struct quad *q) {

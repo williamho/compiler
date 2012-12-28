@@ -1,5 +1,6 @@
 /* expressions.c by William Ho */
 #include "expressions.h"
+#include "globals.h"
 #include "declarations.h"
 #include "symtable.h"
 #include "y.tab.h"
