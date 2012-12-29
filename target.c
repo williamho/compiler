@@ -105,6 +105,7 @@ print_target_from_quad(struct quad *q) {
 	r = (struct symbol *)q->result;
 	s1 = (struct symbol *)q->src1;
 	s2 = (struct symbol *)q->src2;
+	char *opname;
 
 	if (show_target == 2) {
 		printf("\t# ");
@@ -152,6 +153,30 @@ print_target_from_quad(struct quad *q) {
 		printf("\tidivl %s\n",get_name(s2));
 		printf("\tmovl %%%s, %s\n",	// edx contains the remainder
 			(q->opcode == Q_DIV)?"eax":"edx",get_name(r));
+		break;
+	case Q_AND:
+	case Q_OR:
+	case Q_XOR:
+		switch(q->opcode) {
+		case Q_AND: opname="and"; break;
+		case Q_OR: opname="or"; break;
+		case Q_XOR: opname="xor"; break;
+		}
+		printf("\tmovl %s, %%eax\n",get_name(s1));
+		printf("\t%sl %s, %%eax\n",opname,get_name(s2));
+		printf("\tmovl %%eax, %s\n",get_name(r));
+		break;
+	case Q_NOT:
+		printf("\tmovl %s, %%eax\n",get_name(s1));
+		printf("\tnotl %%eax\n");
+		printf("\tmovl %%eax, %s\n",get_name(r));
+		break;
+	case Q_LOGNOT:
+		printf("\tmovl %s, %%eax\n",get_name(s1));
+		printf("\ttestl %%eax, %%eax\n");
+		printf("\tsete %%al\n");
+		printf("\tmovzbl %%al, %%eax\n");
+		printf("\tmovl %%eax, %s\n",get_name(r));
 		break;
 	default:
 		break;
