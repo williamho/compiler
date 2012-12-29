@@ -44,7 +44,6 @@ struct expr_node *new_func_arg_list(struct expr_node *first_arg) {
 	node->nodetype = E_FUNC_ARG;
 	node->val = first_arg;
 	node->next = 0;
-	node->prev = 0;
 	node->last = node;
 	return (struct expr_node *) node;
 }
@@ -55,7 +54,6 @@ struct expr_node *add_func_arg(struct expr_node *to, struct expr_node *arg) {
 	node->nodetype = E_FUNC_ARG;
 	node->val = arg;
 	node->next = 0;
-	node->prev = to_casted->last;
 
 	to_casted->last->next = node;
 	to_casted->last = node;

@@ -617,9 +617,9 @@ compound_stmt
 			add_stmt_list($$,new_jump_stmt(RETURN));
 			if (show_ast) {
 				printf("AST dump for function %s\n",cur_func);
-				print_stmts($3,0); 
+				print_stmts($$,0); 
 			}
-			stmt_list_to_quads($3);
+			stmt_list_to_quads($$);
 		}
 		funcs->last->num_locals = tmp_counter;
 		remove_symtable(); 

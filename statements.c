@@ -23,7 +23,7 @@ struct stmt_node *new_stmt_list(struct expr_node *e) {
 
 void add_stmt_list(struct stmt_node *to, struct stmt_node *s) {
 	to->last->next = s;
-	to->last = s;
+	to->last = s->last;
 }
 
 struct stmt_node *new_if(struct expr_node *ifnode, struct stmt_node *thennode,
