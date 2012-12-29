@@ -464,13 +464,13 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 	struct stmt_node *stmt;
 	// Short circuit operators
 	case LOGAND:
-		yyerror("short circuit operators not implented");
+		new_quad(Q_LOGAND,dest,src1,src2);
+		/*yyerror("short circuit operators not implented");*/
 		/*stmt = new_if(e->left,new_stmt_list(e->right),0);*/
 		/*gen_if(stmt);*/
-		new_quad(Q_LOGAND,dest,src1,src2);
 		break;
 	case LOGOR:
-		yyerror("short circuit operators not implented");
+		/*yyerror("short circuit operators not implented");*/
 		new_quad(Q_LOGOR,dest,src1,src2);
 		break;
 

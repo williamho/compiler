@@ -186,6 +186,20 @@ print_target_from_quad(struct quad *q) {
 		printf("\t%sl %%cl, %%ebx\n",opname);
 		printf("\tmovl %%ebx, %s\n",get_name(r));
 		break;
+	case Q_LOGOR: 
+	case Q_LOGAND: // These aren't actually short circuit
+		opname = (q->opcode == Q_LOGOR)?"or":"and";
+		printf("\tmovl %s, %%edx\n",get_name(s1));
+		printf("\tmovl %s, %%ecx\n",get_name(s2));
+		printf("\ttestl %%edx, %%edx\n");
+		printf("\tsetne %%al\n");
+		printf("\txorl %%edx, %%edx\n");
+		printf("\ttestl %%ecx, %%ecx\n");
+		printf("\tsetne %%dl\n");
+		printf("\t%sl %%edx, %%eax\n",opname);
+		printf("\tandl $1, %%eax\n");
+		printf("\tmovl %%eax, %s\n",get_name(r));
+		break;
 	default:
 		break;
 	}
