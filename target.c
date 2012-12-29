@@ -178,6 +178,14 @@ print_target_from_quad(struct quad *q) {
 		printf("\tmovzbl %%al, %%eax\n");
 		printf("\tmovl %%eax, %s\n",get_name(r));
 		break;
+	case Q_SHL:
+	case Q_SHR:
+		opname = (q->opcode == Q_SHL)?"sal":"sar";
+		printf("\tmovl %s, %%ebx\n",get_name(s1));
+		printf("\tmovl %s, %%ecx\n",get_name(s2));
+		printf("\t%sl %%cl, %%ebx\n",opname);
+		printf("\tmovl %%ebx, %s\n",get_name(r));
+		break;
 	default:
 		break;
 	}
