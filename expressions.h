@@ -67,7 +67,6 @@ struct func_arg_node {
 	COMMON_NODE_ATTRIBUTES;
 	struct expr_node *val;
 	struct func_arg_node *next;
-	struct func_arg_node *prev;
 	struct func_arg_node *last;
 };
 

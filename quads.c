@@ -210,6 +210,7 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 			arr = malloc(sizeof(struct symbol));
 			*arr = *sym;
 			arr->id = ((struct symbol *)tmp)->id;
+			free(tmp);
 
 			new_quad(Q_LEA,(struct generic_node *)arr,
 				(struct generic_node *)sym,0);
@@ -218,8 +219,6 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 		return (struct generic_node *)sym;
 	case E_FUNC_CALL:
 		return get_func_args(expr);
-		break;
-	case E_FUNC_ARG:
 		break;
 	}
 }
@@ -372,6 +371,7 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 	struct generic_node *src1, struct generic_node *src2) 
 {
 	struct generic_node *tmp, *tmp2;
+	struct symbol *sym;
 	int type1, type2, type_tmp;
 
 	type1 = (src1->nodetype==N_CONST || src1->nodetype==N_INT) ? 
@@ -383,7 +383,6 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 	if (type1 == N_INT && type2 == N_INT)
 	{
 		new_quad(opcode,dest,src1,src2);
-		/*new_quad(Q_ADD,dest,src1,src2);*/
 		return dest;
 	}
 	if (type1 == N_INT && (type2 == N_ARR || type2 == N_PTR))
@@ -395,16 +394,23 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 		tmp = new_tmp_node();
 		tmp->nodetype = N_PTR;
 
-		/*if (type1 == N_ARR) {*/
-			/*tmp2 = new_tmp_node();*/
-			/*new_quad(Q_LEA,tmp2,src1,0);*/
-		/*}*/
-		/*else*/
-			tmp2 = src1;
-		if (type1 == N_ARR && ((struct arr_node *) // if array of arrays
-			((struct symbol *)src1)->type)->base->nodetype == N_ARR)
+		tmp2 = src1;
+		sym = (struct symbol *)src1;
+		if (((struct ptr_node *) // if array of arrays
+			sym->type)->to->nodetype == N_ARR)
 		{
 			yyerror("multidimensional arrays not implemented");
+			struct symbol *arr;
+			arr = malloc(sizeof(struct symbol));
+			*arr = *sym;
+			arr->id = ((struct symbol *)tmp)->id;
+			arr->type = ((struct ptr_node *)sym->type)->to;
+			tmp = new_tmp_node();
+
+			new_quad(Q_MUL,tmp,src2,new_const_node_q(4)); // sizeof ptr
+			new_quad(opcode,dest,tmp2,tmp);
+			return expr_to_node(new_sym_node(arr));
+
 			exit(-1);
 			new_quad(Q_MUL,tmp,src2,new_const_node_q(
 				get_size_of_arr((struct arr_node *)((struct arr_node *)
@@ -494,12 +500,8 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 	// Short circuit operators
 	case LOGAND:
 		new_quad(Q_LOGAND,dest,src1,src2);
-		/*yyerror("short circuit operators not implented");*/
-		/*stmt = new_if(e->left,new_stmt_list(e->right),0);*/
-		/*gen_if(stmt);*/
 		break;
 	case LOGOR:
-		/*yyerror("short circuit operators not implented");*/
 		new_quad(Q_LOGOR,dest,src1,src2);
 		break;
 

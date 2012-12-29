@@ -25,15 +25,8 @@ print_globals() {
 	struct global *g = globals;
 	struct symbol *sym;
 
-	/*printf("\t.data\n");*/
 	while(g = g->next) {
 		sym = (struct symbol *)g->var;
-
-		/* If globals could be initialized:
-		printf("\t.align 4\n");
-		printf("\t.type %s,@object\n",sym->id);
-		printf("\t.size %s,",sym->id);
-		*/
 
 		printf("\t.comm %s,",sym->id);
 		if (sym->type->nodetype == N_ARR)
@@ -94,8 +87,7 @@ print_function_body(struct block *bb) {
 			q = q->next;
 		}
 
-		// Next basic block
-		bb = bb->next;
+		bb = bb->next; // Next basic block
 	}
 }
 

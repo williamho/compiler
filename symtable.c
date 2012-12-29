@@ -268,22 +268,3 @@ unsigned long hash(unsigned char *str) {
 	return hash % TABLE_LENGTH;
 }
 
-/** Get pointer to symbol with identifier sname 
-struct symbol *get_sym(char *sname) {
-	unsigned long hashval = hash(sname);
-	struct symbol *sym_ptr;
-	struct symtable *table = cur_symtable;
-	
-	while (table) {
-		if (sym_ptr = table->s[hashval])
-			while (sym_ptr && strcmp(sname, sym_ptr->id))
-				sym_ptr = sym_ptr->chain;
-		
-		if (sym_ptr)
-			return sym_ptr;
-		else
-			table = table->prev;
-	}
-	
-	return 0;
-}*/
