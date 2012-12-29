@@ -67,5 +67,6 @@ struct block *new_block();
 struct generic_node *new_tmp_node();
 void gen_postincdec();
 struct generic_node *get_func_args(struct expr_node *f);
+struct generic_node *gen_lval(struct expr_node *node, int *mode);
 #endif
 

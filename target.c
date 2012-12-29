@@ -117,14 +117,14 @@ print_target_from_quad(struct quad *q) {
 		printf("\tmovl %%edx, %s\n",get_name(r));
 		break;
 	case Q_LOAD:
-		printf("\tleal %s, %%eax\n",get_name(s1));
-		printf("\tmovl %%eax, %s\n",get_name(r));
+		printf("\tmovl %s, %%eax\n",get_name(s1));
+		printf("\tmovl (%%eax), %%edx\n");
+		printf("\tmovl %%edx, %s\n",get_name(r));
 		break;
 	case Q_STORE:
-		printf("\tmovl %s, %%ecx\n",get_name(s2));
-		printf("\tmovl $1, %%eax\n");
-		printf("\tmovl (%%ecx, %%eax, 4), %%eax\n");
-		printf("\tmovl %%eax, %s\n",get_name(s1));
+		printf("\tmovl %s, %%eax\n",get_name(s2));
+		printf("\tmovl %s, %%edx\n",get_name(s1));
+		printf("\tmovl %%edx, (%%eax)\n");
 		break;
 	case Q_ARG_BEGIN:
 		printf("\tsubl $%d, %%esp\n",(atoi(s1->id)+1)*4);

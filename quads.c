@@ -178,18 +178,17 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	struct generic_node *dest, *src1, *src2, *tmp;
 	struct symbol *sym = ((struct sym_node *)expr)->sym;
 	struct array_access_node *arrnode = (struct array_access_node *)expr;
+	int mode = 0;
 
 	switch(expr->nodetype) {
 	case E_ASGN:
-		lval = 0;
+		dest = gen_lval(((struct asgn_node *)expr)->lval,&mode);
 		src1 = expr_to_node(((struct asgn_node *)expr)->rval);
-		lval = 1;
-		dest = expr_to_node(((struct asgn_node *)expr)->lval);
 
-		if (dest->nodetype == N_VAR)
-			new_quad(Q_MOV,dest,src1,0);
-		else 
+		if (mode) // indirect
 			new_quad(Q_STORE,0,src1,dest);
+		else
+			new_quad(Q_MOV,dest,src1,0);
 		return src1;
 	case E_UNARY:
 		return unary_to_node(expr);
@@ -205,20 +204,47 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	case IDENT:
 		if (sym->id[0] != '%' && sym->scope->scope_type != S_FILE)
 			rename_sym(sym);
-		if (!lval && sym->type->nodetype == N_ARR) {
+		if (sym->type->nodetype == N_ARR) {
+			struct symbol *arr;
 			tmp = new_tmp_node();
-			new_quad(Q_LEA,tmp,(struct generic_node *)sym,0);
-			return tmp;
+			arr = malloc(sizeof(struct symbol));
+			*arr = *sym;
+			arr->id = ((struct symbol *)tmp)->id;
+
+			new_quad(Q_LEA,(struct generic_node *)arr,
+				(struct generic_node *)sym,0);
+			return (struct generic_node *)arr;
 		}
 		return (struct generic_node *)sym;
-	case E_ARRAY_ACCESS:
-		// note: not actually used; array access converted to ptr arith
-		break;
 	case E_FUNC_CALL:
 		return get_func_args(expr);
 		break;
 	case E_FUNC_ARG:
 		break;
+	}
+}
+
+struct generic_node *gen_lval(struct expr_node *node, int *mode) {
+	struct symbol *sym;
+	struct unary_node *unode;
+	switch(node->nodetype) {
+	case NUMBER:
+		yyerror("Invalid lvalue"); 
+		return expr_to_node(node);
+	case IDENT:
+		sym = (struct symbol *)node;
+		return expr_to_node(node);
+	case E_UNARY:
+		unode = (struct unary_node *)node;
+		if (unode->type == '*') { // dereference
+			*mode = 1; // indirect
+			return expr_to_node(unode->child);
+		}
+		return unary_to_node(node);
+		break;
+	default:
+		*mode = 1;
+		return expr_to_node(node);
 	}
 }
 
@@ -240,14 +266,6 @@ struct generic_node *get_func_args(struct expr_node *f) {
 		do 
 			new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
 		while (arg = arg->next);
-
-		/*
-		// Emit the arguments in reverse order, with x86 in mind
-		arg = node->first_arg->last;
-		do 
-			new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
-		while (arg = arg->prev);
-		*/
 	}
 
 	new_quad(Q_FUNC_CALL,dest = new_tmp_node(),
@@ -335,8 +353,7 @@ struct generic_node *unary_to_node(struct expr_node *expr) {
 		new_quad(Q_LOGNOT,dest,src,0);
 		break;
 	case '*':
-		if(!lval)
-			new_quad(Q_LOAD,dest,src,0);
+		new_quad(Q_LOAD,dest,src,0);
 		break;
 	case '+': // do nothing
 		return src;
@@ -378,8 +395,12 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 		tmp = new_tmp_node();
 		tmp->nodetype = N_PTR;
 
-		tmp2 = new_tmp_node();
-		new_quad(Q_LEA,tmp2,src1,0);
+		/*if (type1 == N_ARR) {*/
+			/*tmp2 = new_tmp_node();*/
+			/*new_quad(Q_LEA,tmp2,src1,0);*/
+		/*}*/
+		/*else*/
+			tmp2 = src1;
 		if (type1 == N_ARR && ((struct arr_node *) // if array of arrays
 			((struct symbol *)src1)->type)->base->nodetype == N_ARR)
 		{
