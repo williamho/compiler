@@ -112,6 +112,20 @@ print_target_from_quad(struct quad *q) {
 		emit(q);
 	}
 	switch(q->opcode) {
+	case Q_LEA:
+		printf("\tleal %s, %%edx\n",get_name(s1));
+		printf("\tmovl %%edx, %s\n",get_name(r));
+		break;
+	case Q_LOAD:
+		printf("\tleal %s, %%eax\n",get_name(s1));
+		printf("\tmovl %%eax, %s\n",get_name(r));
+		break;
+	case Q_STORE:
+		printf("\tmovl %s, %%ecx\n",get_name(s2));
+		printf("\tmovl $1, %%eax\n");
+		printf("\tmovl (%%ecx, %%eax, 4), %%eax\n");
+		printf("\tmovl %%eax, %s\n",get_name(s1));
+		break;
 	case Q_ARG_BEGIN:
 		printf("\tsubl $%d, %%esp\n",(atoi(s1->id)+1)*4);
 		argnum = 0;
@@ -143,7 +157,8 @@ print_target_from_quad(struct quad *q) {
 		break;
 	case Q_MUL:
 		printf("\tmovl %s, %%eax\n",get_name(s2));
-		printf("\timull %s\n",get_name(s1));
+		printf("\tmovl %s, %%edx\n",get_name(s1));
+		printf("\timull %%edx\n",get_name(s1));
 		printf("\tmovl %%eax, %s\n",get_name(r));
 		break;
 	case Q_DIV:
@@ -199,6 +214,27 @@ print_target_from_quad(struct quad *q) {
 		printf("\t%sl %%edx, %%eax\n",opname);
 		printf("\tandl $1, %%eax\n");
 		printf("\tmovl %%eax, %s\n",get_name(r));
+		break;
+	case Q_CMP:
+		printf("\tmovl %s, %%eax\n",get_name(s1));
+		printf("\tcmpl %s, %%eax\n",get_name(s2));
+		break;
+
+#define JUMP_CODE(x) \
+	printf("\t%s %s\n",x,s1->id); \
+	printf("\tjmp %s\n",s2->id)
+
+	case Q_BR: printf("\tjmp %s\n",s1->id); break;
+	case Q_BREQ: JUMP_CODE("je"); break;
+	case Q_BRNE: JUMP_CODE("jne"); break;
+	case Q_BRGT: JUMP_CODE("jg"); break;
+	case Q_BRGE: JUMP_CODE("jge"); break;
+	case Q_BRLT: JUMP_CODE("jl"); break;
+	case Q_BRLE: JUMP_CODE("jle"); break;
+	case Q_RETURN:
+		if (s1)
+			printf("\tmovl %s, %%eax\n",get_name(s1));
+		printf("\tleave\n\tret\n");
 		break;
 	default:
 		break;

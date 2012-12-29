@@ -19,6 +19,7 @@ struct block *newest_bb = 0;
 struct func_list *funcs;
 struct string_lit *strings;
 struct global *globals;
+int lval = 0;
 
 void stmt_list_to_quads(struct stmt_node *stmt) {
 	if (!stmt)
@@ -174,20 +175,21 @@ gen_condexpr(struct expr_node *e, struct block *bt,
 }
 
 struct generic_node *expr_to_node(struct expr_node *expr) {
-	struct generic_node *dest, *src1, *src2;
+	struct generic_node *dest, *src1, *src2, *tmp;
 	struct symbol *sym = ((struct sym_node *)expr)->sym;
 	struct array_access_node *arrnode = (struct array_access_node *)expr;
 
 	switch(expr->nodetype) {
 	case E_ASGN:
+		lval = 0;
 		src1 = expr_to_node(((struct asgn_node *)expr)->rval);
+		lval = 1;
 		dest = expr_to_node(((struct asgn_node *)expr)->lval);
 
-		if (!dest->nodetype == N_VAR)
+		if (dest->nodetype == N_VAR)
+			new_quad(Q_MOV,dest,src1,0);
+		else 
 			new_quad(Q_STORE,0,src1,dest);
-
-		//if (src1->nodetype == N_CONST)
-		new_quad(Q_MOV,dest,src1,0); // vs load
 		return src1;
 	case E_UNARY:
 		return unary_to_node(expr);
@@ -203,6 +205,11 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	case IDENT:
 		if (sym->id[0] != '%' && sym->scope->scope_type != S_FILE)
 			rename_sym(sym);
+		if (!lval && sym->type->nodetype == N_ARR) {
+			tmp = new_tmp_node();
+			new_quad(Q_LEA,tmp,(struct generic_node *)sym,0);
+			return tmp;
+		}
 		return (struct generic_node *)sym;
 	case E_ARRAY_ACCESS:
 		// note: not actually used; array access converted to ptr arith
@@ -328,7 +335,8 @@ struct generic_node *unary_to_node(struct expr_node *expr) {
 		new_quad(Q_LOGNOT,dest,src,0);
 		break;
 	case '*':
-		new_quad(Q_LOAD,dest,src,0);
+		if(!lval)
+			new_quad(Q_LOAD,dest,src,0);
 		break;
 	case '+': // do nothing
 		return src;
