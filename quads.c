@@ -491,10 +491,10 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 	case '-':
 		ptr_arithmetic(Q_SUB,dest,src1,src2);
 		break;
-	case SHL: // not implemented
+	case SHL:
 		new_quad(Q_SHL,dest,src1,src2);
 		break;
-	case SHR: // not implemented
+	case SHR:
 		new_quad(Q_SHR,dest,src1,src2);
 		break;
 	case '>':
@@ -563,12 +563,10 @@ struct quad *new_quad(int opcode, struct generic_node *r,
 	if (cur_bb->last)
 		cur_bb->last->next = q;
 	cur_bb->last = q;
-	/*emit(q);*/
 	return q;
 }
 
 void print_quads(struct block *bb) {
-	/*struct block *bb = first_bb;*/
 	struct quad *q;
 
 	do {

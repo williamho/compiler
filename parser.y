@@ -425,7 +425,7 @@ direct_abstract_declarator
 	;
 
 initializer // not implemented
-	:asgn_expr
+	:asgn_expr { yyerror("initializers not implemented"); }
 	|'{' initializer_list '}'
 	|'{' initializer_list ',' '}'
 	;
