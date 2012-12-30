@@ -16,51 +16,34 @@ int tmp_counter = 1;
 struct block *first_bb = 0;
 struct block *cur_bb = 0;
 struct block *newest_bb = 0;
-struct postincdec_queue *postqueue;
 struct func_list *funcs;
 struct string_lit *strings;
 struct global *globals;
+struct loop *cur_loop;
+int lval = 0;
 
 void stmt_list_to_quads(struct stmt_node *stmt) {
 	if (!stmt)
 		return;
 
-	postqueue = calloc(1,sizeof(struct postincdec_queue));
-	postqueue->last = postqueue;
 	if (!cur_bb) {
+		newest_bb = 0;
 		first_bb = cur_bb = newest_bb = new_block();
 		funcs->last->bb = first_bb;
 	}
 
-	do {
+	do
 		stmt_to_quad(stmt);
-		gen_postincdec();
-	}
 	while (stmt = stmt->next);
-}
-
-void gen_postincdec() {
-	struct postincdec_queue *q;
-	q = postqueue->next;
-	if (!q)
-		return;
-
-	do {
-		if (q->inc)
-			new_quad(Q_ADD,q->src,q->src,new_const_node_q(1));
-		else
-			new_quad(Q_SUB,q->src,q->src,new_const_node_q(1));
-	}
-	while (q = q->next);
-	postqueue->next = 0; 
-	postqueue->last = postqueue;
-	// yes there is a memory leak
 }
 
 struct quad *stmt_to_quad(struct stmt_node *stmt) {
 	struct for_node *for_node = (struct for_node *)stmt;
 	struct if_node *if_node = (struct if_node *)stmt;
 	struct while_node *while_node = (struct while_node *)stmt;
+
+	if (!stmt)
+		return;
 
 	switch(stmt->nodetype) {
 	case ';': // expression
@@ -82,10 +65,10 @@ struct quad *stmt_to_quad(struct stmt_node *stmt) {
 			new_quad(Q_RETURN,0,0,0);
 		break;
 	case BREAK:
-		yyerror("break not implemented");
+		new_quad(Q_BR,0,(struct generic_node *)cur_loop->after,0);
 		break;
 	case CONTINUE:
-		yyerror("continue not implemented");
+		new_quad(Q_BR,0,(struct generic_node *)cur_loop->body,0);
 		break;
 	}
 }
@@ -114,6 +97,22 @@ void gen_if(struct stmt_node *stmt) {
 	cur_bb = bn;
 }
 
+void new_loop(struct block *body, struct block *after) {
+	struct loop *l = malloc(sizeof(struct loop));
+	l->body = body;
+	l->after = after;
+	l->prev = cur_loop;
+	cur_loop = l;
+}
+
+void end_loop() {
+	struct loop *l = cur_loop;
+	if (cur_loop) {
+		cur_loop = cur_loop->prev;
+		free(l);
+	}
+}
+
 void gen_while(struct stmt_node *stmt) {
 	struct while_node *node = (struct while_node *)stmt;
 
@@ -121,6 +120,7 @@ void gen_while(struct stmt_node *stmt) {
 	check = new_block();
 	body = new_block();
 	after = new_block();
+	new_loop(body,after);
 
 	cur_bb = check;
 	gen_condexpr(node->check,body,after);
@@ -128,16 +128,30 @@ void gen_while(struct stmt_node *stmt) {
 	stmt_list_to_quads(node->body);
 	link_bb(cur_bb,check);
 	cur_bb = after;
+	end_loop();
 }
 
 void gen_for(struct stmt_node *stmt) {
 	struct for_node *node = (struct for_node *)stmt;
-	struct stmt_node *whilenode;
+
+	struct block *cond, *body, *incr, *after;
+	cond = new_block();
+	body = new_block();
+	incr = new_block();
+	after = new_block();
 
 	stmt_list_to_quads(node->init);
-	add_stmt_list(node->body,new_stmt_list(node->incr));
-	whilenode = new_while(node->cond->expr,node->body);
-	gen_while(whilenode);
+	new_loop(incr,after);
+	cur_bb = cond;
+	gen_condexpr(node->cond->expr,body,after);
+	cur_bb = body;
+	stmt_list_to_quads(node->body);
+	link_bb(cur_bb,incr);
+	cur_bb = incr;
+	stmt_list_to_quads(new_stmt_list(node->incr));
+	link_bb(cur_bb,cond);
+	cur_bb = after;
+	end_loop();
 }
 
 void link_bb(struct block *bb1, struct block *bb2) {
@@ -196,20 +210,20 @@ gen_condexpr(struct expr_node *e, struct block *bt,
 }
 
 struct generic_node *expr_to_node(struct expr_node *expr) {
-	struct generic_node *dest, *src1, *src2;
+	struct generic_node *dest, *src1, *src2, *tmp;
 	struct symbol *sym = ((struct sym_node *)expr)->sym;
 	struct array_access_node *arrnode = (struct array_access_node *)expr;
+	int mode = 0;
 
 	switch(expr->nodetype) {
 	case E_ASGN:
+		dest = gen_lval(((struct asgn_node *)expr)->lval,&mode);
 		src1 = expr_to_node(((struct asgn_node *)expr)->rval);
-		dest = expr_to_node(((struct asgn_node *)expr)->lval);
 
-		if (!dest->nodetype == N_VAR)
+		if (mode) // indirect
 			new_quad(Q_STORE,0,src1,dest);
-
-		//if (src1->nodetype == N_CONST)
-		new_quad(Q_MOV,dest,src1,0); // vs load
+		else
+			new_quad(Q_MOV,dest,src1,0);
 		return src1;
 	case E_UNARY:
 		return unary_to_node(expr);
@@ -223,17 +237,48 @@ struct generic_node *expr_to_node(struct expr_node *expr) {
 	case NUMBER:
 		return new_const_node_q(((struct const_node *)expr)->val);
 	case IDENT:
-		if (sym->id[0] != '%' && sym->id[0] != '$')
+		if (sym->id[0] != '%' && sym->scope->scope_type != S_FILE)
 			rename_sym(sym);
+		if (sym->type->nodetype == N_ARR) {
+			struct symbol *arr;
+			tmp = new_tmp_node();
+			arr = malloc(sizeof(struct symbol));
+			*arr = *sym;
+			arr->id = ((struct symbol *)tmp)->id;
+			free(tmp);
+
+			new_quad(Q_LEA,(struct generic_node *)arr,
+				(struct generic_node *)sym,0);
+			return (struct generic_node *)arr;
+		}
 		return (struct generic_node *)sym;
-	case E_ARRAY_ACCESS:
-		// note: not actually used; array access converted to ptr arith
-		break;
 	case E_FUNC_CALL:
 		return get_func_args(expr);
 		break;
-	case E_FUNC_ARG:
+	}
+}
+
+struct generic_node *gen_lval(struct expr_node *node, int *mode) {
+	struct symbol *sym;
+	struct unary_node *unode;
+	switch(node->nodetype) {
+	case NUMBER:
+		yyerror("Invalid lvalue"); 
+		return expr_to_node(node);
+	case IDENT:
+		sym = (struct symbol *)node;
+		return expr_to_node(node);
+	case E_UNARY:
+		unode = (struct unary_node *)node;
+		if (unode->type == '*') { // dereference
+			*mode = 1; // indirect
+			return expr_to_node(unode->child);
+		}
+		return unary_to_node(node);
 		break;
+	default:
+		*mode = 1;
+		return expr_to_node(node);
 	}
 }
 
@@ -244,18 +289,18 @@ struct generic_node *get_func_args(struct expr_node *f) {
 	int num_args = 0;
 
 	arg = node->first_arg;
-	do {
-		// count args
-		num_args++;
-	}
-	while (arg = arg->next);
-	new_quad(Q_ARG_BEGIN,0,new_const_node_q(num_args),0);
+	if (arg) {
+		do 
+			num_args++; // count args
+		while (arg = arg->next);
 
-	arg = node->first_arg;
-	do {
-		new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
+		new_quad(Q_ARG_BEGIN,0,new_const_node_q(num_args),0);
+
+		arg = node->first_arg;
+		do 
+			new_quad(Q_FUNC_ARG,0,expr_to_node(arg->val),0);
+		while (arg = arg->next);
 	}
-	while (arg = arg->next);
 
 	new_quad(Q_FUNC_CALL,dest = new_tmp_node(),
 		(struct generic_node *)(((struct sym_node *)(node->func))->sym),0);
@@ -264,20 +309,12 @@ struct generic_node *get_func_args(struct expr_node *f) {
 
 struct symbol *rename_sym(struct symbol *sym) {
 	char *tmp_name;
-		
-	if (sym->scope->scope_type == S_FILE) {
-		tmp_name = malloc(strlen(sym->id)+2);
-		sprintf(tmp_name,"$%s",sym->id);
-		sym->id = tmp_name;
-		new_global((struct generic_node *)sym);
-	}
-	else {
-		tmp_name = malloc(16);
-		if (sym->type->nodetype == N_ARR)
-			tmp_counter += get_size_of_arr(sym->type)/4;
-		sprintf(tmp_name,"%%T%d",tmp_counter++);
-		sym->id = tmp_name;
-	}
+	tmp_name = malloc(16);
+	if (sym->type->nodetype == N_ARR)
+		tmp_counter += get_size_of_arr(sym->type)/4;
+	sprintf(tmp_name,"%%T%d",tmp_counter++);
+	sym->id = tmp_name;
+
 	return sym;
 }
 
@@ -319,16 +356,6 @@ struct generic_node *new_const_node_q(int val) {
 	return (struct generic_node *)node;
 }
 
-struct postincdec_queue *new_postincdec(char inc, struct generic_node *src) {
-	struct postincdec_queue *q = malloc(sizeof(struct postincdec_queue));
-	q->src = src;
-	q->inc = inc;
-	postqueue->last->next = q;
-	postqueue->last = q;
-	q->next = 0;
-	return q;
-}
-
 struct generic_node *unary_to_node(struct expr_node *expr) {
 	struct generic_node *dest, *src;
 	struct unary_node *e = (struct unary_node *)expr;
@@ -338,18 +365,20 @@ struct generic_node *unary_to_node(struct expr_node *expr) {
 
 	switch(e->type) {
 	case E_PREINC:
-		new_quad(Q_ADD,src,src,new_const_node_q(1));
+		new_quad(Q_INC,0,src,0);
+		new_quad(Q_MOV,dest,src,0);
 		break;
 	case E_PREDEC:
-		new_quad(Q_SUB,src,src,new_const_node_q(1));
+		new_quad(Q_DEC,0,src,0);
+		new_quad(Q_MOV,dest,src,0);
 		break;
 	case E_POSTINC:
 		new_quad(Q_MOV,dest,src,0);
-		new_postincdec(1,src);
+		new_quad(Q_INC,0,src,0);
 		break;
 	case E_POSTDEC:
 		new_quad(Q_MOV,dest,src,0);
-		new_postincdec(0,src);
+		new_quad(Q_DEC,0,src,0);
 		break;
 	case '&':
 		new_quad(Q_LEA,dest,src,0);
@@ -377,6 +406,7 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 	struct generic_node *src1, struct generic_node *src2) 
 {
 	struct generic_node *tmp, *tmp2;
+	struct symbol *sym;
 	int type1, type2, type_tmp;
 
 	type1 = (src1->nodetype==N_CONST || src1->nodetype==N_INT) ? 
@@ -388,7 +418,6 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 	if (type1 == N_INT && type2 == N_INT)
 	{
 		new_quad(opcode,dest,src1,src2);
-		/*new_quad(Q_ADD,dest,src1,src2);*/
 		return dest;
 	}
 	if (type1 == N_INT && (type2 == N_ARR || type2 == N_PTR))
@@ -400,12 +429,23 @@ struct generic_node *ptr_arithmetic(int opcode, struct generic_node *dest,
 		tmp = new_tmp_node();
 		tmp->nodetype = N_PTR;
 
-		tmp2 = new_tmp_node();
-		new_quad(Q_LEA,tmp2,src1,0);
-		if (type1 == N_ARR && ((struct arr_node *) // if array of arrays
-			((struct symbol *)src1)->type)->base->nodetype == N_ARR)
+		tmp2 = src1;
+		sym = (struct symbol *)src1;
+		if (((struct ptr_node *) // if array of arrays
+			sym->type)->to->nodetype == N_ARR)
 		{
 			yyerror("multidimensional arrays not implemented");
+			struct symbol *arr;
+			arr = malloc(sizeof(struct symbol));
+			*arr = *sym;
+			arr->id = ((struct symbol *)tmp)->id;
+			arr->type = ((struct ptr_node *)sym->type)->to;
+			tmp = new_tmp_node();
+
+			new_quad(Q_MUL,tmp,src2,new_const_node_q(4)); // sizeof ptr
+			new_quad(opcode,dest,tmp2,tmp);
+			return expr_to_node(new_sym_node(arr));
+
 			exit(-1);
 			new_quad(Q_MUL,tmp,src2,new_const_node_q(
 				get_size_of_arr((struct arr_node *)((struct arr_node *)
@@ -451,10 +491,10 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 	case '-':
 		ptr_arithmetic(Q_SUB,dest,src1,src2);
 		break;
-	case SHL: // not implemented
+	case SHL:
 		new_quad(Q_SHL,dest,src1,src2);
 		break;
-	case SHR: // not implemented
+	case SHR:
 		new_quad(Q_SHR,dest,src1,src2);
 		break;
 	case '>':
@@ -494,13 +534,9 @@ struct generic_node *binary_to_node(struct expr_node *expr) {
 	struct stmt_node *stmt;
 	// Short circuit operators
 	case LOGAND:
-		yyerror("short circuit operators not implented");
-		/*stmt = new_if(e->left,new_stmt_list(e->right),0);*/
-		/*gen_if(stmt);*/
 		new_quad(Q_LOGAND,dest,src1,src2);
 		break;
 	case LOGOR:
-		yyerror("short circuit operators not implented");
 		new_quad(Q_LOGOR,dest,src1,src2);
 		break;
 
@@ -527,12 +563,10 @@ struct quad *new_quad(int opcode, struct generic_node *r,
 	if (cur_bb->last)
 		cur_bb->last->next = q;
 	cur_bb->last = q;
-	/*emit(q);*/
 	return q;
 }
 
 void print_quads(struct block *bb) {
-	/*struct block *bb = first_bb;*/
 	struct quad *q;
 
 	do {
@@ -550,6 +584,7 @@ void print_quads(struct block *bb) {
 
 struct func_list *new_function(char *name) {
 	struct func_list *fl;
+
 	cur_bb = 0;
 	func_counter++;
 	block_counter = 1;
@@ -572,7 +607,7 @@ void emit(struct quad *q) {
 
 	if (r)
 		printf("%s = ",r->id);
-	if (q)
+	if (q->opcode)
 		printf("%s ",opcode_string(q->opcode));
 	if (s1)
 		printf("%s",s1->id);
@@ -595,6 +630,8 @@ char *opcode_string(int opcode) {
 	case Q_BRLE: 	return "BRLE";
 	case Q_BREQ: 	return "BREQ";
 	case Q_BRNE: 	return "BRNE";
+	case Q_INC: 	return "INC";
+	case Q_DEC: 	return "DEC";
 	case Q_ADD: 	return "ADD";
 	case Q_SUB: 	return "SUB";
 	case Q_MUL: 	return "MUL";
@@ -618,8 +655,6 @@ char *opcode_string(int opcode) {
 }
 
 print_all_quads() {
-	printf("Quads generated:\n");
-
 	// print globals
 	struct global *g = globals;
 	struct symbol *sym;

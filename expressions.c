@@ -127,11 +127,32 @@ void print_expr(struct expr_node *node, int depth) {
 		print_expr(anode->rval,depth);
 		break;
 	case E_UNARY:
-		printf("UNARY OP '%c' (%d)\n",unode->type,unode->type);
+		printf("UNARY OP ",unode->type,unode->type);
+		switch(unode->type) {
+		case E_POSTINC:	printf("POSTINC"); break;
+		case E_PREINC: printf("PREINC"); break;
+		case E_POSTDEC: printf("POSTDEC"); break;
+		case E_PREDEC: printf("PREDEC"); break;
+		case '*': printf("DEREFERENCE"); break;
+		default: printf("%c",unode->type); break;
+		}
+		putchar('\n');
 		print_expr(unode->child,depth);
 		break;
 	case E_BINARY:
-		printf("BINARY OP '%c' (%d)\n",bnode->type,bnode->type);
+		printf("BINARY OP ",bnode->type,bnode->type);
+		switch(bnode->type) {
+		case SHL: printf("<<"); break;
+		case SHR: printf(">>"); break;
+		case GTEQ: printf(">="); break;
+		case LTEQ: printf("<="); break;
+		case EQEQ: printf("=="); break;
+		case NOTEQ: printf("!="); break;
+		case LOGAND: printf("&&"); break;
+		case LOGOR: printf("||"); break;
+		default: printf("%c",bnode->type); break;
+		}
+		putchar('\n');
 		print_expr(bnode->left,depth);
 		print_expr(bnode->right,depth);
 		break;
@@ -166,15 +187,17 @@ void print_expr(struct expr_node *node, int depth) {
 		printf("function\n");
 		print_expr(fnode->func,depth+2);
 		EXPR_SPACING(depth+1);
-		printf("arguments\n");
-		print_expr((struct expr_node *)fnode->first_arg,depth+2);
+		if (fnode->first_arg) {
+			printf("arguments\n");
+			print_expr((struct expr_node *)fnode->first_arg,depth+2);
+		}
 		break;
 	case E_FUNC_ARG:
 		do {
 			printf("FUNCTION ARGUMENT\n");
 			print_expr(fanode->val,depth);
 			if (fanode->next)
-				EXPR_SPACING(depth);
+				EXPR_SPACING(depth-1);
 		}
 		while (fanode = fanode->next);
 		break;

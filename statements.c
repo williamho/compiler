@@ -17,13 +17,16 @@ struct stmt_node *new_stmt_list(struct expr_node *e) {
 	node->nodetype = ';';
 	node->next = 0;
 	node->last = node;
-	node->expr = e;
+	if (e)
+		node->expr = e;
+	else
+		node->expr = new_const_node(1);
 	return node;
 }
 
 void add_stmt_list(struct stmt_node *to, struct stmt_node *s) {
 	to->last->next = s;
-	to->last = s;
+	to->last = s->last;
 }
 
 struct stmt_node *new_if(struct expr_node *ifnode, struct stmt_node *thennode,
