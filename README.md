@@ -10,11 +10,11 @@ With a file that needs preprocessing (has `#include`s, `#define`s, etc):
 
 Otherwise, from some file:
 
-    cat inputfile.c | ./compile >outputfile.s
+    ./compile <inputfile.c >outputfile.s
 
 Or just run `./compile >outputfile.s` and type in your code manually.
 
-The `outputfile.s` file contains x86 assembly (AT&T) syntax. To create an 
+The `outputfile.s` file contains x86 assembly (AT&T syntax). To create an 
 executable and run it:
 
 	gcc -m32 outputfile.s -o a.out
@@ -88,5 +88,5 @@ Things that it does now that could be improved:
 * terribly disorganized
 	* do the AST nodes properly!
 * quads are internal (the printed quads aren't actually used as input)
-* sizes are hardcoded to 4, since only ints/pointers are supported
+* sizes are hardcoded to 4, since only `int`s/pointers are supported
 
