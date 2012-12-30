@@ -1,0 +1,63 @@
+'x' declared at <stdin>:1 [file scope @ <stdin>:1] as
+variable of type 
+   int 
+
+'main' declared at <stdin>:3 as
+function returning 
+   int 
+
+'pointers' declared at <stdin>:14 as
+function returning 
+   int 
+
+'x' declared at <stdin>:15 [function scope @ <stdin>:15] as
+variable of type 
+   int 
+
+'p' declared at <stdin>:15 [function scope @ <stdin>:15] as
+variable of type 
+   pointer to 
+      int 
+
+'fibonacci' declared at <stdin>:25 as
+function returning 
+   int 
+
+'arr' declared at <stdin>:26 [function scope @ <stdin>:26] as
+variable of type 
+   array of 15 
+      int 
+
+'i' declared at <stdin>:26 [function scope @ <stdin>:26] as
+variable of type 
+   int 
+
+'continues_and_breaks' declared at <stdin>:37 as
+function returning 
+   int 
+
+'i' declared at <stdin>:38 [function scope @ <stdin>:38] as
+variable of type 
+   int 
+
+'returnval' declared at <stdin>:52 as
+function returning 
+   int 
+
+'retval' declared at <stdin>:53 [function scope @ <stdin>:53] as
+variable of type 
+   int 
+
+'dec2bin' declared at <stdin>:58 as
+function returning 
+   int 
+
+'i' declared at <stdin>:59 [function scope @ <stdin>:59] as
+variable of type 
+   int 
+
+'flag' declared at <stdin>:59 [function scope @ <stdin>:59] as
+variable of type 
+   int 
+
+

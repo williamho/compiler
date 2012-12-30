@@ -29,10 +29,11 @@ executable and run it:
 
 Note: if none of the above options are specified, `-t` will be set by default.
 
+For sample input/output files, see the `tests` directory.
+
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ##Features
-Wow, look at all the features!!!
 
 * show AST, declarations, quads, and target code (x86)
 * reading and writing local and global variables (including block scopes)
@@ -66,7 +67,7 @@ What this compiler doesn't support:
 	* casts
 	* ternary operator (i.e. `a ? b : c`)
 	* short circuit operators `&&` and `||`
-		* the operators are there; they just don't short circuit
+		* the operators exist and return 0 or 1; they just don't short circuit
 	* division of pointers
 	* unary `+` operator
 		* what does this even do
