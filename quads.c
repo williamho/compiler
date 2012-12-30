@@ -19,6 +19,7 @@ struct block *newest_bb = 0;
 struct func_list *funcs;
 struct string_lit *strings;
 struct global *globals;
+struct loop *cur_loop;
 int lval = 0;
 
 void stmt_list_to_quads(struct stmt_node *stmt) {
@@ -41,6 +42,9 @@ struct quad *stmt_to_quad(struct stmt_node *stmt) {
 	struct if_node *if_node = (struct if_node *)stmt;
 	struct while_node *while_node = (struct while_node *)stmt;
 
+	if (!stmt)
+		return;
+
 	switch(stmt->nodetype) {
 	case ';': // expression
 		expr_to_node(stmt->expr);
@@ -61,10 +65,10 @@ struct quad *stmt_to_quad(struct stmt_node *stmt) {
 			new_quad(Q_RETURN,0,0,0);
 		break;
 	case BREAK:
-		yyerror("break not implemented");
+		new_quad(Q_BR,0,(struct generic_node *)cur_loop->after,0);
 		break;
 	case CONTINUE:
-		yyerror("continue not implemented");
+		new_quad(Q_BR,0,(struct generic_node *)cur_loop->body,0);
 		break;
 	}
 }
@@ -93,6 +97,22 @@ void gen_if(struct stmt_node *stmt) {
 	cur_bb = bn;
 }
 
+void new_loop(struct block *body, struct block *after) {
+	struct loop *l = malloc(sizeof(struct loop));
+	l->body = body;
+	l->after = after;
+	l->prev = cur_loop;
+	cur_loop = l;
+}
+
+void end_loop() {
+	struct loop *l = cur_loop;
+	if (cur_loop) {
+		cur_loop = cur_loop->prev;
+		free(l);
+	}
+}
+
 void gen_while(struct stmt_node *stmt) {
 	struct while_node *node = (struct while_node *)stmt;
 
@@ -100,6 +120,7 @@ void gen_while(struct stmt_node *stmt) {
 	check = new_block();
 	body = new_block();
 	after = new_block();
+	new_loop(body,after);
 
 	cur_bb = check;
 	gen_condexpr(node->check,body,after);
@@ -107,16 +128,30 @@ void gen_while(struct stmt_node *stmt) {
 	stmt_list_to_quads(node->body);
 	link_bb(cur_bb,check);
 	cur_bb = after;
+	end_loop();
 }
 
 void gen_for(struct stmt_node *stmt) {
 	struct for_node *node = (struct for_node *)stmt;
-	struct stmt_node *whilenode;
+
+	struct block *cond, *body, *incr, *after;
+	cond = new_block();
+	body = new_block();
+	incr = new_block();
+	after = new_block();
 
 	stmt_list_to_quads(node->init);
-	add_stmt_list(node->body,new_stmt_list(node->incr));
-	whilenode = new_while(node->cond->expr,node->body);
-	gen_while(whilenode);
+	new_loop(incr,after);
+	cur_bb = cond;
+	gen_condexpr(node->cond->expr,body,after);
+	cur_bb = body;
+	stmt_list_to_quads(node->body);
+	link_bb(cur_bb,incr);
+	cur_bb = incr;
+	stmt_list_to_quads(new_stmt_list(node->incr));
+	link_bb(cur_bb,cond);
+	cur_bb = after;
+	end_loop();
 }
 
 void link_bb(struct block *bb1, struct block *bb2) {

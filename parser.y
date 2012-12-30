@@ -38,6 +38,9 @@ struct string_lit *strings;
 struct global *globals;
 struct func_list *funcs;
 
+char is_undef, *undef;
+char error_flag; 
+
 // options
 char show_ast, show_decl, show_quads, show_target;
 %}
@@ -152,8 +155,8 @@ decl_specs
 decl_spec
 	:storage_class_spec
 	|type_spec
-	|type_qual { yywarn("type qualifiers not implemented"); }
-	|INLINE { yywarn("inline not implemented"); } // Not implemented
+	|type_qual { yyerror("type qualifiers not implemented"); }
+	|INLINE { yyerror("inline not implemented"); } // Not implemented
 	;
 	
 init_declarator_list
@@ -167,7 +170,9 @@ init_declarator_list
 
 init_declarator
 	:declarator { $1->deepest->nodetype = N_VAR; $$ = $1; }
-	|declarator '=' initializer // Not implemented
+	|declarator '=' initializer { 
+		yyerror("initialized declarations not implemented");
+	}
 	;
 
 storage_class_spec
@@ -234,7 +239,7 @@ struct_or_union_spec
 
 struct_or_union
 	:STRUCT
-	|UNION { yywarn("unions not implemented"); }
+	|UNION { yyerror("unions not implemented"); }
 	;
 
 struct_decl_list
@@ -254,8 +259,8 @@ spec_qual_list
 		$$ = $2;
 	}
 	|type_spec 
-	|type_qual spec_qual_list { yywarn("type qualifiers not implemented"); }
-	|type_qual { yywarn("type qualifiers not implemented"); }
+	|type_qual spec_qual_list { yyerror("type qualifiers not implemented"); }
+	|type_qual { yyerror("type qualifiers not implemented"); }
 	;
 
 struct_declarator_list
@@ -270,8 +275,8 @@ struct_declarator_list
 
 struct_declarator
 	:declarator { $1->deepest->nodetype = N_STRUCT_MEM; $$ = $1; }
-	|':' const_expr { yywarn("bit fields not implemented"); }
-	|declarator ':' const_expr { yywarn("bit fields not implemented"); }
+	|':' const_expr { yyerror("bit fields not implemented"); }
+	|declarator ':' const_expr { yyerror("bit fields not implemented"); }
 	;
 
 enum_spec
@@ -339,13 +344,15 @@ direct_declarator
 	
 pointer 
 	:'*' { $$ = new_declarator((struct generic_node *)new_ptr_node()); }
-	|'*' type_qual_list { yywarn("type qualifiers not implemented"); } 
+	|'*' type_qual_list { yyerror("type qualifiers not implemented"); } 
 	|'*' pointer {
 		$$ = $2;
 		((struct ptr_node *) $$->top)->to = new_ptr_node();
 		$$->top = ((struct ptr_node *)$$->top)->to;
 	}
-	|'*' type_qual_list pointer { yywarn("type qualifiers not implemented"); } 
+	|'*' type_qual_list pointer { 
+		yyerror("type qualifiers not implemented"); 
+	} 
 	;
 
 type_qual_list
@@ -437,14 +444,18 @@ primary_expr
 		// should work for functions not yet defined
 		struct symbol *s;
 		if (!get_sym($1,NS_OTHER,0)) {
+			is_undef = 1;
+			undef = $1;
 			s =  malloc(sizeof(struct symbol));
 			s = (struct symbol *)new_func_node();
 			s->id = $1;
 			s->file = "<external>";
 			$$ = new_sym_node(s); 
 		}
-		else
+		else {
+			is_undef = 0;
 			$$ = new_sym_node(get_sym($1,NS_OTHER,0)); 
+		}
 	}
 	|NUMBER { $$ = new_const_node($1.ival); }
 	|STRING { $$ = new_string_node($1); }
@@ -458,10 +469,11 @@ postfix_expr
 		struct expr_node *tmp = new_binary_node('+',$1,$3); 
 		$$ = new_unary_node('*',tmp); // deref
 	}
-	|postfix_expr '(' ')' { $$ = new_func_call_node($1,0); }
-	|postfix_expr '(' arg_expr_list ')' { $$ = new_func_call_node($1,$3); }
-	|postfix_expr '.' IDENT { yywarn("structs not implemented"); }
-	|postfix_expr INDSEL IDENT { yywarn("structs not implemented"); }
+	|postfix_expr '(' { is_undef = 0; } ')' { $$ = new_func_call_node($1,0); }
+	|postfix_expr '(' { is_undef = 0; } arg_expr_list ')' 
+		{ $$ = new_func_call_node($1,$4); }
+	|postfix_expr '.' IDENT { yyerror("structs not implemented"); }
+	|postfix_expr INDSEL IDENT { yyerror("structs not implemented"); }
 	|postfix_expr PLUSPLUS { $$ = new_unary_node(E_POSTINC,$1); }
 	|postfix_expr MINUSMINUS { $$ = new_unary_node(E_POSTDEC,$1); }
 	;
@@ -481,13 +493,13 @@ unary_expr
 	|'-' cast_expr { $$ = new_unary_node('-',$2); }
 	|'~' cast_expr { $$ = new_unary_node('~',$2); }
 	|'!' cast_expr { $$ = new_unary_node('!',$2); }
-	|SIZEOF unary_expr { yywarn("sizeof not implemented"); }
-	|SIZEOF '(' type_name ')' { yywarn("sizeof not implemented"); }
+	|SIZEOF unary_expr { yyerror("sizeof not implemented"); }
+	|SIZEOF '(' type_name ')' { yyerror("sizeof not implemented"); }
 	;
 
 cast_expr
 	:unary_expr
-	|'(' type_name ')' cast_expr { yywarn("casts not implemented"); }
+	|'(' type_name ')' cast_expr { yyerror("casts not implemented"); }
 	;
 
 mult_expr
@@ -550,7 +562,9 @@ log_or_expr
 
 cond_expr
 	:log_or_expr
-	|log_or_expr '?' expr ':' cond_expr { yywarn("cond_expr not implemented"); }
+	|log_or_expr '?' expr ':' cond_expr { 
+		yyerror("cond_expr not implemented"); 
+	}
 	;
 
 asgn_expr
@@ -584,7 +598,7 @@ const_expr
 	
 stmt
 	:compound_stmt
-	|expr_stmt
+	|expr_stmt { if (is_undef) yyerror("undefined variable %s",undef); }
 //	|labeled_stmt
 	|selection_stmt
 	|iteration_stmt
@@ -593,9 +607,9 @@ stmt
 
 /*
 labeled_stmt
-	:IDENT ':' stmt { yywarn("labels not implemented"); }
-	|CASE const_expr ':' stmt { yywarn("switch not implemented"); }
-	|DEFAULT ':' stmt { yywarn("switch not implemented"); }
+	:IDENT ':' stmt { yyerror("labels not implemented"); }
+	|CASE const_expr ':' stmt { yyerror("switch not implemented"); }
+	|DEFAULT ':' stmt { yyerror("switch not implemented"); }
 	;
 */
 
@@ -643,23 +657,21 @@ decl_list
 	;
 
 expr_stmt
-	:';' {}
-	|expr ';' {
-		$$ = new_stmt_list($1);
-	}
+	:';' { $$ = new_stmt_list(0); }
+	|expr ';' {	$$ = new_stmt_list($1); }
 	;
 
 selection_stmt
 	:IF '(' expr ')' stmt { $$ = new_if($3,$5,0); }
 	|IF '(' expr ')' stmt ELSE stmt { $$ = new_if($3,$5,$7); }
-	|SWITCH '(' expr ')' stmt { yywarn("switch not implemented"); }
+	|SWITCH '(' expr ')' stmt { yyerror("switch not implemented"); }
 	;
 
 iteration_stmt
 	:WHILE '(' expr ')' stmt {
 		$$ = new_while($3,$5);	
 	}
-	|DO stmt WHILE '(' expr ')' ';' { yywarn("do loop not implemented"); }
+	|DO stmt WHILE '(' expr ')' ';' { yyerror("do loop not implemented"); }
 	|FOR '(' expr_stmt expr_stmt ')' stmt { 
 		$$ = new_for($3,$4,0,$6); 
 	}
@@ -669,7 +681,7 @@ iteration_stmt
 	;
 
 jump_stmt
-	:GOTO IDENT ';' { yywarn("goto not implemented"); }
+	:GOTO IDENT ';' { yyerror("goto not implemented"); }
 	|CONTINUE ';'  { $$ = new_jump_stmt(CONTINUE); }
 	|BREAK ';' { $$ = new_jump_stmt(BREAK); }
 	|RETURN ';' { $$ = new_stmt_list(0); $$->nodetype = RETURN; }
@@ -716,10 +728,14 @@ main(int argc, char *argv[]) {
 	funcs->last = funcs;
 
 	yyparse();
+	if (error_flag) 
+		return -1;
 	putchar('\n');
 
 	if (show_quads) 
 		print_all_quads();
+	if (error_flag) 
+		return -1;
 
 	if (show_target)
 		print_target_code();

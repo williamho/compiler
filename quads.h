@@ -29,6 +29,11 @@ struct func_list {
 	struct block *bb;
 };
 
+struct loop {
+	struct block *body, *after;
+	struct loop *prev;
+};
+
 #define COMMON_NODE_ATTRIBUTES \
 	int nodetype
 struct block {

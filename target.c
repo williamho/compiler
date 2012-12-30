@@ -157,7 +157,8 @@ print_target_from_quad(struct quad *q) {
 	case Q_MOD:
 		printf("\tmovl $0, %%edx\n"); // most significant 4 bytes
 		printf("\tmovl %s, %%eax\n",get_name(s1)); // least sig 4 bytes
-		printf("\tidivl %s\n",get_name(s2));
+		printf("\tmovl %s, %%ecx\n",get_name(s2)); // least sig 4 bytes
+		printf("\tidivl %%ecx\n");
 		printf("\tmovl %%%s, %s\n",	// edx contains the remainder
 			(q->opcode == Q_DIV)?"eax":"edx",get_name(r));
 		break;
@@ -188,10 +189,12 @@ print_target_from_quad(struct quad *q) {
 	case Q_SHL:
 	case Q_SHR:
 		opname = (q->opcode == Q_SHL)?"sal":"sar";
+		printf("\tmovl %%ebx, %%edx\n");
 		printf("\tmovl %s, %%ebx\n",get_name(s1));
 		printf("\tmovl %s, %%ecx\n",get_name(s2));
 		printf("\t%sl %%cl, %%ebx\n",opname);
 		printf("\tmovl %%ebx, %s\n",get_name(r));
+		printf("\tmovl %%edx, %%ebx\n");
 		break;
 	case Q_LOGOR: 
 	case Q_LOGAND: // These aren't actually short circuit

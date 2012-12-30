@@ -25,6 +25,8 @@ char str_buf[MAX_STR_LEN];
 char filename[MAX_STR_LEN] = "<stdin>";
 char *buf_ptr;
 struct symtable *cur_symtable;
+
+char error_flag;
 %}
 
 NUM [0-9]
@@ -305,6 +307,8 @@ void yyerror(char *s, ...) {
 	va_start(args,s);
 	vsnprintf(buffer,MAX_STR_LEN-1,s,args);
 	va_end(args);
+
+	error_flag = 1;
 	fprintf(stderr,"%s:%d: error: %s\n",filename, line_num, buffer);
 }
 

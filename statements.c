@@ -17,7 +17,10 @@ struct stmt_node *new_stmt_list(struct expr_node *e) {
 	node->nodetype = ';';
 	node->next = 0;
 	node->last = node;
-	node->expr = e;
+	if (e)
+		node->expr = e;
+	else
+		node->expr = new_const_node(1);
 	return node;
 }
 
