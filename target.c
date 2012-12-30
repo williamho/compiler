@@ -142,8 +142,8 @@ print_target_from_quad(struct quad *q) {
 		break;
 	case Q_ADD:
 	case Q_SUB:
-		printf("\tmovl %s, %%eax\n",get_name(s1));
-		printf("\tmovl %s, %%edx\n",get_name(s2));
+		printf("\tmovl %s, %%eax\n",get_name(s2));
+		printf("\tmovl %s, %%edx\n",get_name(s1));
 		printf("\t%sl %%eax, %%edx\n",(q->opcode == Q_ADD)?"add":"sub");
 		printf("\tmovl %%edx, %s\n",get_name(r));
 		break;
