@@ -1,0 +1,20 @@
+global variable x is 50
+
+in function, local var x is 0
+changing values via pointer indirection
+in function, local var x is now 1234
+
+after leaving function, global variable x is still 50
+
+fibonacci using a while-loop:
+1 1 2 3 5 8 13 21 34 55 89 144 233 377 610 
+
+example of continues and breaks in for-loop:
+16 . 14 . 12 . 10 . 8 7 6 5 4 3 
+
+this function returns the value 21475
+the function returnval() returned 21475
+
+left/right shift example
+21475 in binary is: 00101001111100011
+

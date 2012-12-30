@@ -1,0 +1,292 @@
+
+GLOBAL x 4
+
+STRING .LC0 "global variable x is %d\012\012"
+STRING .LC1 "after leaving function, global variable x is still %d\012\012"
+STRING .LC2 "the function returnval() returned %d\012\012"
+STRING .LC3 "in function, local var x is %d\012"
+STRING .LC4 "changing values via pointer indirection\012"
+STRING .LC5 "in function, local var x is now %d\012\012"
+STRING .LC6 "fibonacci using a while-loop:\012%d %d "
+STRING .LC7 "%d "
+STRING .LC8 "\012\012"
+STRING .LC9 "example of continues and breaks in for-loop:\012"
+STRING .LC10 ". "
+STRING .LC11 "%d "
+STRING .LC12 "\012\012"
+STRING .LC13 "this function returns the value %d\012"
+STRING .LC14 "left/right shift example\012"
+STRING .LC15 "%d in binary is: "
+STRING .LC16 "%d"
+STRING .LC17 "\012\012"
+
+main:
+.BB1.1:
+x = MOV 50
+ARGBEGIN 2
+ARG .LC0
+ARG x
+%T1 = CALL printf
+%T2 = CALL pointers
+ARGBEGIN 2
+ARG .LC1
+ARG x
+%T3 = CALL printf
+%T4 = CALL fibonacci
+%T5 = CALL continues_and_breaks
+ARGBEGIN 2
+ARG .LC2
+%T6 = CALL returnval
+x = MOV %T6
+ARG %T6
+%T7 = CALL printf
+%T8 = CALL dec2bin
+RETURN 1
+
+pointers:
+.BB2.1:
+%T1 = MOV 0
+ARGBEGIN 2
+ARG .LC3
+ARG %T1
+%T2 = CALL printf
+ARGBEGIN 1
+ARG .LC4
+%T3 = CALL printf
+%T5 = LEA %T1
+%T4 = MOV %T5
+STORE 1234,%T4
+ARGBEGIN 2
+ARG .LC5
+ARG %T1
+%T6 = CALL printf
+RETURN 1
+
+fibonacci:
+.BB3.1:
+%T17 = LEA %T16
+%T19 = MUL 0,4
+%T18 = ADD %T17,%T19
+%T20 = LEA %T16
+%T22 = MUL 1,4
+%T21 = ADD %T20,%T22
+STORE 1,%T21
+STORE 1,%T18
+ARGBEGIN 3
+ARG .LC6
+%T23 = LEA %T16
+%T24 = LOAD %T23
+ARG %T24
+%T25 = LEA %T16
+%T27 = MUL 1,4
+%T26 = ADD %T25,%T27
+%T28 = LOAD %T26
+ARG %T28
+%T29 = CALL printf
+%T30 = MOV 2
+
+.BB3.2:
+CMP %T30,15
+BRLT .BB3.5,.BB3.6
+
+.BB3.3:
+%T32 = LEA %T16
+%T34 = MUL %T30,4
+%T33 = ADD %T32,%T34
+%T35 = LEA %T16
+%T36 = SUB %T30,1
+%T38 = MUL %T36,4
+%T37 = ADD %T35,%T38
+%T39 = LOAD %T37
+%T40 = LEA %T16
+%T41 = SUB %T30,2
+%T43 = MUL %T41,4
+%T42 = ADD %T40,%T43
+%T44 = LOAD %T42
+%T45 = ADD %T39,%T44
+STORE %T45,%T33
+ARGBEGIN 2
+ARG .LC7
+%T46 = LEA %T16
+%T47 = MOV %T30
+INC %T30
+%T49 = MUL %T47,4
+%T48 = ADD %T46,%T49
+%T50 = LOAD %T48
+ARG %T50
+%T51 = CALL printf
+BR .BB3.2
+
+.BB3.4:
+ARGBEGIN 1
+ARG .LC8
+%T52 = CALL printf
+RETURN 1
+
+.BB3.5:
+%T31 = MOV 1
+BR .BB3.7
+
+.BB3.6:
+%T31 = MOV 0
+BR .BB3.7
+
+.BB3.7:
+CMP %T31,0
+BRNE .BB3.3,.BB3.4
+
+continues_and_breaks:
+.BB4.1:
+ARGBEGIN 1
+ARG .LC9
+%T1 = CALL printf
+%T2 = MOV 16
+
+.BB4.2:
+CMP %T2,0
+BRGE .BB4.6,.BB4.7
+
+.BB4.3:
+CMP %T2,8
+BRGT .BB4.11,.BB4.12
+
+.BB4.4:
+%T10 = MOV %T2
+DEC %T2
+BR .BB4.2
+
+.BB4.5:
+ARGBEGIN 1
+ARG .LC12
+%T11 = CALL printf
+RETURN 1
+
+.BB4.6:
+%T3 = MOV 1
+BR .BB4.8
+
+.BB4.7:
+%T3 = MOV 0
+BR .BB4.8
+
+.BB4.8:
+CMP %T3,0
+BRNE .BB4.3,.BB4.5
+
+.BB4.9:
+ARGBEGIN 1
+ARG .LC10
+%T7 = CALL printf
+BR .BB4.4
+BR .BB4.10
+
+.BB4.10:
+CMP %T2,3
+BRLT .BB4.16,.BB4.17
+
+.BB4.11:
+%T4 = MOV 1
+BR .BB4.13
+
+.BB4.12:
+%T4 = MOV 0
+BR .BB4.13
+
+.BB4.13:
+%T5 = MOD %T2,2
+%T6 = LOGAND %T4,%T5
+CMP %T6,0
+BRNE .BB4.9,.BB4.10
+
+.BB4.14:
+BR .BB4.5
+BR .BB4.15
+
+.BB4.15:
+ARGBEGIN 2
+ARG .LC11
+ARG %T2
+%T9 = CALL printf
+BR .BB4.4
+
+.BB4.16:
+%T8 = MOV 1
+BR .BB4.18
+
+.BB4.17:
+%T8 = MOV 0
+BR .BB4.18
+
+.BB4.18:
+CMP %T8,0
+BRNE .BB4.14,.BB4.15
+
+returnval:
+.BB5.1:
+ARGBEGIN 2
+ARG .LC13
+%T1 = MOV 21475
+ARG 21475
+%T2 = CALL printf
+RETURN %T1
+RETURN 1
+
+dec2bin:
+.BB6.1:
+ARGBEGIN 1
+ARG .LC14
+%T1 = CALL printf
+ARGBEGIN 2
+ARG .LC15
+ARG x
+%T2 = CALL printf
+%T4 = SHL 1,16
+%T3 = MOV %T4
+
+.BB6.2:
+CMP %T3,0
+BRGT .BB6.6,.BB6.7
+
+.BB6.3:
+ARGBEGIN 2
+ARG .LC16
+%T6 = AND %T3,x
+CMP %T6,0
+BRNE .BB6.9,.BB6.10
+
+.BB6.4:
+%T9 = SHR %T3,1
+%T3 = MOV %T9
+BR .BB6.2
+
+.BB6.5:
+ARGBEGIN 1
+ARG .LC17
+%T10 = CALL printf
+RETURN 1
+
+.BB6.6:
+%T5 = MOV 1
+BR .BB6.8
+
+.BB6.7:
+%T5 = MOV 0
+BR .BB6.8
+
+.BB6.8:
+CMP %T5,0
+BRNE .BB6.3,.BB6.5
+
+.BB6.9:
+%T7 = MOV 1
+BR .BB6.11
+
+.BB6.10:
+%T7 = MOV 0
+BR .BB6.11
+
+.BB6.11:
+ARG %T7
+%T8 = CALL printf
+BR .BB6.4
+
