@@ -57,7 +57,7 @@ char *get_escaped_string(char *p) {
 			*write++ = c;
 		}
 		else {
-			write += sprintf(write,"\\%02d",(unsigned char)c);
+			write += sprintf(write,"\\%03o",(unsigned char)c);
 		}
 	}
 	*write = '\0';

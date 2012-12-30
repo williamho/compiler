@@ -5,7 +5,9 @@
 enum quad_opcodes {
 	Q_MOV=1, Q_LOAD, Q_LEA, Q_STORE,
 	Q_BR, Q_CMP, Q_BRGT, Q_BRLT, Q_BRGE, Q_BRLE, Q_BREQ, Q_BRNE,
-	
+
+	Q_INC, Q_DEC, 
+
 	Q_ADD, Q_SUB, Q_MUL, Q_DIV, Q_MOD, 
 	Q_AND, Q_XOR, Q_OR, Q_LOGAND, Q_LOGOR, 
 	Q_NOT, Q_LOGNOT, Q_SHL, Q_SHR,
@@ -20,23 +22,23 @@ struct quad {
 	struct quad *next;
 };
 
-struct postincdec_queue {
-	char inc; // 0 for dec, 1 for inc
-	struct generic_node *src;
-	struct postincdec_queue *next, *last;
-};
-
 struct func_list {
 	char *id;
+	int num_locals;
 	struct func_list *next, *last;
 	struct block *bb;
+};
+
+struct loop {
+	struct block *body, *after;
+	struct loop *prev;
 };
 
 #define COMMON_NODE_ATTRIBUTES \
 	int nodetype
 struct block {
 	COMMON_NODE_ATTRIBUTES;
-	struct generic_node *type;
+	struct generic_node *type; // unused
 	char *id;
 	struct quad *first, *last;
 	struct block *next;
@@ -70,5 +72,6 @@ struct block *new_block();
 struct generic_node *new_tmp_node();
 void gen_postincdec();
 struct generic_node *get_func_args(struct expr_node *f);
+struct generic_node *gen_lval(struct expr_node *node, int *mode);
 #endif
 

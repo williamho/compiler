@@ -158,6 +158,10 @@ struct symbol *add_sym(struct symbol *sym, struct symtable *table) {
 	sym->chain = cur_sym;
 	memcpy(new_sym,sym,sizeof(struct symbol));
 	table->s[hashval] = new_sym;
+
+	if(new_sym->nodetype != N_FUNC && new_sym->scope->scope_type == S_FILE)
+		new_global(new_sym);
+
 	free(sym);
 	return new_sym;
 }
@@ -264,22 +268,3 @@ unsigned long hash(unsigned char *str) {
 	return hash % TABLE_LENGTH;
 }
 
-/** Get pointer to symbol with identifier sname 
-struct symbol *get_sym(char *sname) {
-	unsigned long hashval = hash(sname);
-	struct symbol *sym_ptr;
-	struct symtable *table = cur_symtable;
-	
-	while (table) {
-		if (sym_ptr = table->s[hashval])
-			while (sym_ptr && strcmp(sname, sym_ptr->id))
-				sym_ptr = sym_ptr->chain;
-		
-		if (sym_ptr)
-			return sym_ptr;
-		else
-			table = table->prev;
-	}
-	
-	return 0;
-}*/
