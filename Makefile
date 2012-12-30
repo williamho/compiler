@@ -31,4 +31,5 @@ bin/lex.yy.o: lexer.l
 	gcc -c lex.yy.c -o bin/lex.yy.o
 
 clean:
-	rm -rf bin/*.o y.tab.* *.output *.out
+	rm -rf bin/*.o y.tab.* *.output *.out lex.yy.* compile
+

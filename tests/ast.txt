@@ -1,0 +1,284 @@
+AST dump for function main
+ASSIGNMENT
+ SYMBOL x (declared @<stdin>:1)
+ CONSTANT 50
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "global variable x is %d\n\n"
+   FUNCTION ARGUMENT
+    SYMBOL x (declared @<stdin>:1)
+FUNCTION CALL
+  function
+   SYMBOL pointers (declared @<external>:0)
+  FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "after leaving function, global variable x is still %d\n\n"
+   FUNCTION ARGUMENT
+    SYMBOL x (declared @<stdin>:1)
+FUNCTION CALL
+  function
+   SYMBOL fibonacci (declared @<external>:0)
+  FUNCTION CALL
+  function
+   SYMBOL continues_and_breaks (declared @<external>:0)
+  FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "the function returnval() returned %d\n\n"
+   FUNCTION ARGUMENT
+    ASSIGNMENT
+     SYMBOL x (declared @<stdin>:1)
+     FUNCTION CALL
+       function
+        SYMBOL returnval (declared @<external>:0)
+       FUNCTION CALL
+  function
+   SYMBOL dec2bin (declared @<external>:0)
+  RETURN
+ CONSTANT 1
+AST dump for function pointers
+ASSIGNMENT
+ SYMBOL x (declared @<stdin>:15)
+ CONSTANT 0
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "in function, local var x is %d\n"
+   FUNCTION ARGUMENT
+    SYMBOL x (declared @<stdin>:15)
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "changing values via pointer indirection\n"
+ASSIGNMENT
+ SYMBOL p (declared @<stdin>:15)
+ UNARY OP &
+  SYMBOL x (declared @<stdin>:15)
+ASSIGNMENT
+ UNARY OP DEREFERENCE
+  SYMBOL p (declared @<stdin>:15)
+ CONSTANT 1234
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "in function, local var x is now %d\n\n"
+   FUNCTION ARGUMENT
+    SYMBOL x (declared @<stdin>:15)
+RETURN
+ CONSTANT 1
+AST dump for function fibonacci
+ASSIGNMENT
+ UNARY OP DEREFERENCE
+  BINARY OP +
+   SYMBOL arr (declared @<stdin>:26)
+   CONSTANT 0
+ ASSIGNMENT
+  UNARY OP DEREFERENCE
+   BINARY OP +
+    SYMBOL arr (declared @<stdin>:26)
+    CONSTANT 1
+  CONSTANT 1
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "fibonacci using a while-loop:\n%d %d "
+   FUNCTION ARGUMENT
+    UNARY OP DEREFERENCE
+     SYMBOL arr (declared @<stdin>:26)
+   FUNCTION ARGUMENT
+    UNARY OP DEREFERENCE
+     BINARY OP +
+      SYMBOL arr (declared @<stdin>:26)
+      CONSTANT 1
+ASSIGNMENT
+ SYMBOL i (declared @<stdin>:26)
+ CONSTANT 2
+WHILE
+-CHECK
+ BINARY OP <
+  SYMBOL i (declared @<stdin>:26)
+  CONSTANT 15
+-BODY
+ ASSIGNMENT
+  UNARY OP DEREFERENCE
+   BINARY OP +
+    SYMBOL arr (declared @<stdin>:26)
+    SYMBOL i (declared @<stdin>:26)
+  BINARY OP +
+   UNARY OP DEREFERENCE
+    BINARY OP +
+     SYMBOL arr (declared @<stdin>:26)
+     BINARY OP -
+      SYMBOL i (declared @<stdin>:26)
+      CONSTANT 1
+   UNARY OP DEREFERENCE
+    BINARY OP +
+     SYMBOL arr (declared @<stdin>:26)
+     BINARY OP -
+      SYMBOL i (declared @<stdin>:26)
+      CONSTANT 2
+ FUNCTION CALL
+   function
+    SYMBOL printf (declared @<external>:0)
+   arguments
+    FUNCTION ARGUMENT
+     STRING "%d "
+    FUNCTION ARGUMENT
+     UNARY OP DEREFERENCE
+      BINARY OP +
+       SYMBOL arr (declared @<stdin>:26)
+       UNARY OP POSTINC
+        SYMBOL i (declared @<stdin>:26)
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "\n\n"
+RETURN
+ CONSTANT 1
+AST dump for function continues_and_breaks
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "example of continues and breaks in for-loop:\n"
+FOR LOOP
+-INIT
+ ASSIGNMENT
+  SYMBOL i (declared @<stdin>:38)
+  CONSTANT 16
+-COND
+ BINARY OP >=
+  SYMBOL i (declared @<stdin>:38)
+  CONSTANT 0
+-BODY
+-IF
+--CHECK
+  BINARY OP &&
+   BINARY OP >
+    SYMBOL i (declared @<stdin>:38)
+    CONSTANT 8
+   BINARY OP %
+    SYMBOL i (declared @<stdin>:38)
+    CONSTANT 2
+--THEN
+   FUNCTION CALL
+     function
+      SYMBOL printf (declared @<external>:0)
+     arguments
+      FUNCTION ARGUMENT
+       STRING ". "
+---CONTINUE
+-IF
+--CHECK
+  BINARY OP <
+   SYMBOL i (declared @<stdin>:38)
+   CONSTANT 3
+--THEN
+---BREAK
+ FUNCTION CALL
+   function
+    SYMBOL printf (declared @<external>:0)
+   arguments
+    FUNCTION ARGUMENT
+     STRING "%d "
+    FUNCTION ARGUMENT
+     SYMBOL i (declared @<stdin>:38)
+-INCR
+ UNARY OP POSTDEC
+  SYMBOL i (declared @<stdin>:38)
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "\n\n"
+RETURN
+ CONSTANT 1
+AST dump for function returnval
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "this function returns the value %d\n"
+   FUNCTION ARGUMENT
+    ASSIGNMENT
+     SYMBOL retval (declared @<stdin>:53)
+     CONSTANT 21475
+RETURN
+ SYMBOL retval (declared @<stdin>:53)
+RETURN
+ CONSTANT 1
+AST dump for function dec2bin
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "left/right shift example\n"
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "%d in binary is: "
+   FUNCTION ARGUMENT
+    SYMBOL x (declared @<stdin>:1)
+FOR LOOP
+-INIT
+ ASSIGNMENT
+  SYMBOL i (declared @<stdin>:59)
+  BINARY OP <<
+   CONSTANT 1
+   CONSTANT 16
+-COND
+ BINARY OP >
+  SYMBOL i (declared @<stdin>:59)
+  CONSTANT 0
+-BODY
+ FUNCTION CALL
+   function
+    SYMBOL printf (declared @<external>:0)
+   arguments
+    FUNCTION ARGUMENT
+     STRING "%d"
+    FUNCTION ARGUMENT
+     BINARY OP !=
+      BINARY OP &
+       SYMBOL i (declared @<stdin>:59)
+       SYMBOL x (declared @<stdin>:1)
+      CONSTANT 0
+-INCR
+ ASSIGNMENT
+  SYMBOL i (declared @<stdin>:59)
+  BINARY OP >>
+   SYMBOL i (declared @<stdin>:59)
+   CONSTANT 1
+FUNCTION CALL
+  function
+   SYMBOL printf (declared @<external>:0)
+  arguments
+   FUNCTION ARGUMENT
+    STRING "\n\n"
+RETURN
+ CONSTANT 1
+
